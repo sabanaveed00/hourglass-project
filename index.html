@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Step 5 — WASD Controls &amp; Holographic Placards</title>
+<title>Step 6 — Project Showcase Doors</title>
 <style>
   html, body {
     margin: 0; padding: 0; width: 100%; height: 100%;
@@ -131,6 +131,118 @@
     pointer-events: none;
   }
   #toast.toast-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ---------------------------------------------------------------- */
+  /* INTERACT PROMPT (near an in-range door)                           */
+  /* ---------------------------------------------------------------- */
+  #interact-prompt {
+    position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%);
+    z-index: 15;
+    background: rgba(10, 8, 6, 0.75);
+    border: 1px solid rgba(201, 162, 39, 0.5);
+    color: #f1e6c8; padding: 8px 16px; border-radius: 8px;
+    font-family: 'Segoe UI', system-ui, sans-serif; font-size: 13px;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  #interact-prompt.prompt-hidden { opacity: 0; }
+  #interact-prompt kbd {
+    background: rgba(241, 230, 200, 0.15); border: 1px solid rgba(241, 230, 200, 0.3);
+    border-radius: 4px; padding: 1px 6px; font-family: inherit; font-weight: 700;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* PROJECT SHOWCASE OVERLAY — a stone-slate frame holding an inset   */
+  /* parchment "scroll", over a modern translucent backdrop blur       */
+  /* ---------------------------------------------------------------- */
+  #project-overlay {
+    position: fixed; inset: 0; z-index: 50;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+    transition: opacity 0.3s ease;
+  }
+  #project-overlay.project-hidden { opacity: 0; pointer-events: none; }
+  .project-backdrop {
+    position: absolute; inset: 0;
+    background: rgba(10, 8, 6, 0.65);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  }
+  .project-card {
+    position: relative;
+    width: min(560px, 100%);
+    max-height: 88vh;
+    overflow-y: auto;
+    border-radius: 14px;
+    padding: 10px;
+    background: linear-gradient(160deg, #4a3a26, #2b2015);
+    border: 1px solid rgba(201, 162, 39, 0.5);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    transform: translateY(0) scale(1);
+    transition: transform 0.3s ease;
+  }
+  #project-overlay.project-hidden .project-card { transform: translateY(16px) scale(0.97); }
+  .project-card-inner {
+    background: linear-gradient(180deg, #ece2c8, #ddd0ac);
+    border-radius: 8px;
+    padding: 30px 28px 26px;
+    color: #2c2415;
+    font-family: Georgia, 'Times New Roman', serif;
+    box-shadow: inset 0 0 30px rgba(90, 70, 30, 0.15);
+  }
+  .project-eyebrow {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: #8a6d2f; font-weight: 700; margin-bottom: 6px;
+  }
+  .project-title { margin: 0 0 12px; font-size: 28px; }
+  .project-description { font-size: 16px; line-height: 1.55; margin: 0 0 20px; }
+  .project-tech-label {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: #6b5a35; margin-bottom: 8px; font-weight: 700;
+  }
+  .project-tech-list {
+    list-style: none; margin: 0 0 26px; padding: 0;
+    display: flex; flex-wrap: wrap; gap: 8px;
+  }
+  .project-tech-list li {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 12.5px; font-weight: 600;
+    padding: 5px 12px; border-radius: 20px;
+    background: rgba(139, 109, 47, 0.15);
+    border: 1px solid rgba(139, 109, 47, 0.4);
+    color: #5c4a24;
+  }
+  .project-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .project-link-btn {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 12px 20px; border-radius: 8px;
+    background: #2c2415; color: #ecdca0;
+    text-decoration: none; font-size: 14px; font-weight: 700;
+    transition: background 0.15s ease, transform 0.15s ease;
+  }
+  .project-link-btn:hover { background: #46381f; transform: translateY(-1px); }
+  .project-close-room-btn {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    padding: 12px 18px; border-radius: 8px;
+    background: transparent; color: #5c4a24;
+    border: 1.5px solid rgba(92, 74, 36, 0.4);
+    font-size: 14px; font-weight: 700; cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  .project-close-room-btn:hover { background: rgba(92, 74, 36, 0.08); border-color: rgba(92, 74, 36, 0.7); }
+  .project-close-x {
+    position: absolute; top: 18px; right: 18px;
+    width: 30px; height: 30px; border-radius: 50%; border: none;
+    background: rgba(0, 0, 0, 0.15); color: #2c2415;
+    font-size: 16px; cursor: pointer; z-index: 2;
+  }
+  .project-close-x:hover { background: rgba(0, 0, 0, 0.3); }
+  @media (max-width: 480px) {
+    .project-card-inner { padding: 24px 20px 20px; }
+    .project-title { font-size: 22px; }
+  }
 </style>
 </head>
 <body>
@@ -181,6 +293,27 @@
 </div>
 
 <div id="toast"></div>
+
+<div id="interact-prompt" class="prompt-hidden">Press <kbd>E</kbd> or click to open — <span id="interact-prompt-label"></span></div>
+
+<!-- PLACEHOLDER PROJECT LINKS — swap the href on each door's PROJECTS entry (in the module script) for your real repo/demo URLs. -->
+<div id="project-overlay" class="project-hidden">
+  <div class="project-backdrop" data-close></div>
+  <div class="project-card">
+    <button id="project-close" class="project-close-x" aria-label="Close">&times;</button>
+    <div class="project-card-inner">
+      <div class="project-eyebrow">Project Showcase</div>
+      <h2 id="project-title" class="project-title">Web Applications</h2>
+      <p id="project-description" class="project-description"></p>
+      <div class="project-tech-label">Technologies</div>
+      <ul id="project-tech-list" class="project-tech-list"></ul>
+      <div class="project-actions">
+        <a id="project-link" class="project-link-btn" href="#" target="_blank" rel="noopener">View Live Demo / GitHub Code</a>
+        <button id="project-close-room" class="project-close-room-btn">Close Room</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script type="importmap">
 {
@@ -856,10 +989,24 @@ SKILLS.forEach((skill, i) => {
 });
 
 // --- Balcony doors + shared "Project Showcases" tag ---------------------
+// Each door is a real, functioning game object now: it swings open on a
+// hinge, has its own project data, and knows whether the player is
+// close enough to interact with it. See section 17 for the click/'E'-key
+// trigger, the hover highlight, and the project overlay itself.
 const DOOR_WIDTH = 3.2;
 const DOOR_HEIGHT = 5.5;
+const DOOR_OPEN_ANGLE = -Math.PI / 2; // swings 90° into the room, away from the wall
 const doorMaterial = new THREE.MeshStandardMaterial({ color: 0x5b3a24, roughness: 0.7, metalness: 0.1 });
-const doorMeshes = [];
+
+const PROJECTS = [
+  { title: 'Web Applications', description: 'Full-stack apps built with modern JavaScript — dashboards, e-commerce, and everything in between.', tech: ['React', 'Node.js', 'PostgreSQL'], link: 'https://github.com/yourusername' },
+  { title: 'Game Projects', description: 'Small interactive experiments and browser games, several of them built right on top of this same engine.', tech: ['Three.js', 'WebGL', 'JavaScript'], link: 'https://github.com/yourusername' },
+  { title: 'Design Work', description: 'UI/UX explorations — wireframes, prototypes, and interface design polished well past the pixel.', tech: ['Figma', 'CSS', 'Design Systems'], link: 'https://github.com/yourusername' },
+  { title: 'Open Source', description: 'Tools and contributions shared back with the community, built to be read as much as run.', tech: ['Python', 'Git', 'CLI Tools'], link: 'https://github.com/yourusername' },
+];
+
+const doorMeshes = []; // flat list of clickable meshes, for the raycaster
+const doors = [];      // per-door game state: hinge pivot, animation target, project data
 
 [-18, -6, 6, 18].forEach((x, i) => {
   const frame = new THREE.Mesh(new THREE.BoxGeometry(DOOR_WIDTH + 0.8, DOOR_HEIGHT + 0.8, 0.6), hallStoneMaterial);
@@ -867,14 +1014,25 @@ const doorMeshes = [];
   frame.castShadow = true;
   hallGroup.add(frame);
 
-  const door = new THREE.Mesh(new THREE.BoxGeometry(DOOR_WIDTH, DOOR_HEIGHT, 0.3), doorMaterial);
-  door.position.set(x, HALLWAY_FLOOR_Y + BALCONY_HEIGHT + DOOR_HEIGHT / 2, HALL_END_Z + WALL_THICKNESS / 2 + 0.4);
+  // The door pivots around its LEFT edge, not its center: the pivot
+  // Group sits on the hinge line, and the door mesh is offset half its
+  // own width inside that group — so rotating the GROUP swings the door
+  // like a real hinged door instead of spinning it in place around its
+  // own middle.
+  const pivot = new THREE.Group();
+  pivot.position.set(x - DOOR_WIDTH / 2, HALLWAY_FLOOR_Y + BALCONY_HEIGHT, HALL_END_Z + WALL_THICKNESS / 2 + 0.4);
+  hallGroup.add(pivot);
+
+  const door = new THREE.Mesh(new THREE.BoxGeometry(DOOR_WIDTH, DOOR_HEIGHT, 0.3), doorMaterial.clone());
+  door.position.set(DOOR_WIDTH / 2, DOOR_HEIGHT / 2, 0);
   door.castShadow = true;
   door.receiveShadow = true;
   door.userData.isDoor = true;
-  door.userData.doorLabel = `Project Showcase ${i + 1}`;
-  hallGroup.add(door);
+  door.userData.doorIndex = i;
+  pivot.add(door);
+
   doorMeshes.push(door);
+  doors.push({ pivot, mesh: door, index: i, project: PROJECTS[i], isOpen: false, targetAngle: 0 });
 });
 
 const showcaseTag = createTextPanel(['Project Showcases'], { width: 7, height: 1.6 });
@@ -1143,6 +1301,20 @@ window.addEventListener('keydown', (event) => {
   if (event.key === 'ArrowRight' || event.key === 'd' || event.key === 'D') keyState.right = true;
   if (dialogueOpen && event.key === 'Enter') { event.preventDefault(); closeDialogue(); }
   if (contactPopupOpen && event.key === 'Escape') closeContactPopup();
+  if (projectOverlayOpen && event.key === 'Escape') closeProjectOverlay();
+
+  // 'E' to interact — the standard game-controller alternative to
+  // clicking, for whichever door (if any) the player is currently
+  // standing close enough to open. `doors`/`getNearestDoorInRange`/
+  // `openProjectOverlay` are all defined later (section 17) but this
+  // closure only ever runs on an actual keypress, by which point the
+  // whole module has finished evaluating — same pattern already used
+  // above for `closeDialogue`/`closeContactPopup`.
+  if ((event.key === 'e' || event.key === 'E') && sequenceState === 'exploring'
+      && !dialogueOpen && !contactPopupOpen && !projectOverlayOpen) {
+    const nearestDoor = getNearestDoorInRange();
+    if (nearestDoor) openProjectOverlay(nearestDoor);
+  }
 });
 
 window.addEventListener('keyup', (event) => {
@@ -1203,13 +1375,13 @@ function openDialogue(guide) {
 function closeDialogue() {
   dialogueOpen = false;
   dialogueBox.classList.add('dialogue-hidden');
-  if (sequenceState === 'exploring') controls.enabled = true;
+  if (sequenceState === 'exploring' && !contactPopupOpen && !projectOverlayOpen) controls.enabled = true;
 }
 
 dialogueCloseBtn.addEventListener('click', closeDialogue);
 
 /* ====================================================================
-   17. CONTACT POPUP + DOOR TOAST + UNIFIED RAYCASTING
+   17. CONTACT POPUP + PROJECT SHOWCASE DOORS + UNIFIED RAYCASTING
    ==================================================================== */
 
 const contactPopup = document.getElementById('contact-popup');
@@ -1224,23 +1396,117 @@ function openContactPopup() {
 function closeContactPopup() {
   contactPopupOpen = false;
   contactPopup.classList.add('contact-hidden');
-  if (sequenceState === 'exploring') controls.enabled = true;
+  if (sequenceState === 'exploring' && !dialogueOpen && !projectOverlayOpen) controls.enabled = true;
 }
 contactCloseBtn.addEventListener('click', closeContactPopup);
 contactPopup.querySelectorAll('[data-close]').forEach((el) => el.addEventListener('click', closeContactPopup));
 
 const toastEl = document.getElementById('toast');
 let toastTimeoutId = null;
-function showDoorToast(label) {
-  console.log(`${label}: Door opening animation unlocked in next update!`);
-  toastEl.textContent = 'Door opening animation unlocked in next update!';
+function showToast(message) {
+  toastEl.textContent = message;
   toastEl.classList.add('toast-visible');
   clearTimeout(toastTimeoutId);
   toastTimeoutId = setTimeout(() => toastEl.classList.remove('toast-visible'), 3200);
 }
 
+/* --------------------------------------------------------------------
+   Project showcase doors: proximity, hover highlight, open/close
+   -------------------------------------------------------------------- */
+
+const DOOR_INTERACT_RANGE = 6;   // how close the player must be to open a door
+const DOOR_ANIMATION_LAMBDA = 5; // higher = snappier open/close swing
+const doorHighlightEmissive = new THREE.Color(0xffcc66);
+
+function getNearestDoorInRange() {
+  let nearest = null;
+  let nearestDist = Infinity;
+  doors.forEach((d) => {
+    if (d.isOpen) return; // already open — nothing left to trigger
+    const dist = d.pivot.position.distanceTo(camera.position);
+    if (dist <= DOOR_INTERACT_RANGE && dist < nearestDist) {
+      nearest = d;
+      nearestDist = dist;
+    }
+  });
+  return nearest;
+}
+
+function setDoorHighlight(doorState, on) {
+  doorState.mesh.material.emissive.set(on ? doorHighlightEmissive : 0x000000);
+  doorState.mesh.material.emissiveIntensity = on ? 0.6 : 0;
+}
+
+const interactPrompt = document.getElementById('interact-prompt');
+const interactPromptLabelEl = document.getElementById('interact-prompt-label');
+
+const projectOverlay = document.getElementById('project-overlay');
+const projectCloseBtn = document.getElementById('project-close');
+const projectCloseRoomBtn = document.getElementById('project-close-room');
+const projectTitleEl = document.getElementById('project-title');
+const projectDescriptionEl = document.getElementById('project-description');
+const projectTechListEl = document.getElementById('project-tech-list');
+const projectLinkEl = document.getElementById('project-link');
+
+let projectOverlayOpen = false;
+let activeDoor = null;
+
+function openProjectOverlay(doorState) {
+  activeDoor = doorState;
+  doorState.isOpen = true;
+  doorState.targetAngle = DOOR_OPEN_ANGLE;
+  setDoorHighlight(doorState, false); // no need for a hover glow once it's already open
+
+  projectOverlayOpen = true;
+  controls.enabled = false;
+
+  const { title, description, tech, link } = doorState.project;
+  projectTitleEl.textContent = title;
+  projectDescriptionEl.textContent = description;
+  projectTechListEl.innerHTML = '';
+  tech.forEach((t) => {
+    const li = document.createElement('li');
+    li.textContent = t;
+    projectTechListEl.appendChild(li);
+  });
+  projectLinkEl.href = link;
+
+  projectOverlay.classList.remove('project-hidden');
+}
+
+function closeProjectOverlay() {
+  if (activeDoor) {
+    activeDoor.isOpen = false;
+    activeDoor.targetAngle = 0; // swings itself shut in the render loop, section 19
+    activeDoor = null;
+  }
+  projectOverlayOpen = false;
+  projectOverlay.classList.add('project-hidden');
+  if (sequenceState === 'exploring' && !dialogueOpen && !contactPopupOpen) controls.enabled = true;
+}
+
+projectCloseBtn.addEventListener('click', closeProjectOverlay);
+projectCloseRoomBtn.addEventListener('click', closeProjectOverlay);
+projectOverlay.querySelectorAll('[data-close]').forEach((el) => el.addEventListener('click', closeProjectOverlay));
+
+function tryOpenDoor(index) {
+  const doorState = doors[index];
+  if (!doorState || doorState.isOpen) return;
+  const dist = doorState.pivot.position.distanceTo(camera.position);
+  if (dist > DOOR_INTERACT_RANGE) {
+    showToast('Move closer to open this door.');
+    return;
+  }
+  openProjectOverlay(doorState);
+}
+
+/* --------------------------------------------------------------------
+   Unified raycasting for guides + the contact icon + doors
+   -------------------------------------------------------------------- */
+
 const raycaster = new THREE.Raycaster();
 const pointerNDC = new THREE.Vector2();
+let hoveredDoorState = null;
 
 function pickInteractiveAt(clientX, clientY) {
   pointerNDC.x = (clientX / window.innerWidth) * 2 - 1;
@@ -1258,17 +1524,37 @@ function pickInteractiveAt(clientX, clientY) {
 }
 
 canvas.addEventListener('click', (event) => {
-  if (sequenceState !== 'exploring' || dialogueOpen || contactPopupOpen) return;
+  if (sequenceState !== 'exploring' || dialogueOpen || contactPopupOpen || projectOverlayOpen) return;
   const hit = pickInteractiveAt(event.clientX, event.clientY);
   if (!hit) return;
   if (hit.userData.isGuide) openDialogue(hit);
   else if (hit.userData.isContactIcon) openContactPopup();
-  else if (hit.userData.isDoor) showDoorToast(hit.userData.doorLabel);
+  else if (hit.userData.isDoor) tryOpenDoor(hit.userData.doorIndex);
 });
 
 canvas.addEventListener('pointermove', (event) => {
-  if (sequenceState !== 'exploring' || dialogueOpen || contactPopupOpen) { canvas.style.cursor = 'default'; return; }
-  canvas.style.cursor = pickInteractiveAt(event.clientX, event.clientY) ? 'pointer' : 'default';
+  if (sequenceState !== 'exploring' || dialogueOpen || contactPopupOpen || projectOverlayOpen) {
+    canvas.style.cursor = 'default';
+    if (hoveredDoorState) { setDoorHighlight(hoveredDoorState, false); hoveredDoorState = null; }
+    return;
+  }
+
+  const hit = pickInteractiveAt(event.clientX, event.clientY);
+
+  // Only highlight a door when it's ACTUALLY within reach right now —
+  // the glow is meant to signify "you can open this", not just "your
+  // cursor happens to be over it from across the room".
+  let nextHoveredDoor = null;
+  if (hit && hit.userData.isDoor) {
+    const doorState = doors[hit.userData.doorIndex];
+    const inRange = doorState.pivot.position.distanceTo(camera.position) <= DOOR_INTERACT_RANGE;
+    if (inRange && !doorState.isOpen) nextHoveredDoor = doorState;
+  }
+  if (hoveredDoorState && hoveredDoorState !== nextHoveredDoor) setDoorHighlight(hoveredDoorState, false);
+  if (nextHoveredDoor && nextHoveredDoor !== hoveredDoorState) setDoorHighlight(nextHoveredDoor, true);
+  hoveredDoorState = nextHoveredDoor;
+
+  canvas.style.cursor = hit ? 'pointer' : 'default';
 });
 
 /* ====================================================================
@@ -1393,9 +1679,27 @@ function animate() {
       placard.position.y = placard.userData.baseY + Math.sin(elapsed * 1.2 + placard.userData.bobPhase) * 0.15;
     });
 
-    if (!dialogueOpen && !contactPopupOpen) {
+    // Doors ease toward their open/closed target angle continuously —
+    // like the icon and placards above, this keeps running even while
+    // movement is paused, so a door someone just opened finishes its
+    // swing instead of freezing mid-animation.
+    doors.forEach((d) => {
+      d.pivot.rotation.y = THREE.MathUtils.damp(d.pivot.rotation.y, d.targetAngle, DOOR_ANIMATION_LAMBDA, dt);
+    });
+
+    if (!dialogueOpen && !contactPopupOpen && !projectOverlayOpen) {
       updateExploringMovement(dt);
       controls.update();
+
+      const nearestDoor = getNearestDoorInRange();
+      if (nearestDoor) {
+        interactPromptLabelEl.textContent = nearestDoor.project.title;
+        interactPrompt.classList.remove('prompt-hidden');
+      } else {
+        interactPrompt.classList.add('prompt-hidden');
+      }
+    } else {
+      interactPrompt.classList.add('prompt-hidden');
     }
   }
 
