@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Step 2 — Desert Dunes &amp; the Roman Archway</title>
+<title>Step 3 — The Roman Colonnade &amp; Interactive Guides</title>
 <style>
   /* ------------------------------------------------------------------ */
   /* Full-bleed canvas setup. No scrollbars, no margins, fills viewport. */
@@ -37,6 +37,85 @@
     pointer-events: none;
     user-select: none;
     transition: opacity 0.6s ease;
+    z-index: 10;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* RPG-STYLE DIALOGUE BOX (Step 3, section 15)                        */
+  /* ------------------------------------------------------------------ */
+  #dialogue-box {
+    position: fixed;
+    left: 50%;
+    bottom: 32px;
+    transform: translateX(-50%);
+    width: min(680px, calc(100vw - 32px));
+    z-index: 20;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+  }
+
+  #dialogue-box.dialogue-hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-50%) translateY(14px);
+  }
+
+  .dialogue-panel {
+    position: relative;
+    background: linear-gradient(180deg, rgba(30, 21, 13, 0.95), rgba(12, 8, 5, 0.97));
+    border: 2px solid #c9a227;
+    border-radius: 10px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55), inset 0 0 24px rgba(201, 162, 39, 0.08);
+    padding: 26px 24px 18px;
+    color: #f1e6c8;
+    font-family: Georgia, 'Times New Roman', serif;
+  }
+
+  .dialogue-name {
+    position: absolute;
+    top: -18px;
+    left: 20px;
+    padding: 4px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    letter-spacing: 0.04em;
+    color: #1a1108;
+    background: #c9a227; /* overridden inline per-guide, to match their tunic color */
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  }
+
+  .dialogue-text {
+    font-size: 17px;
+    line-height: 1.5;
+    margin-top: 6px;
+  }
+
+  .dialogue-hint {
+    margin-top: 14px;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgba(241, 230, 200, 0.55);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+  }
+
+  #dialogue-close {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1px solid rgba(241, 230, 200, 0.4);
+    background: rgba(0, 0, 0, 0.35);
+    color: #f1e6c8;
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  #dialogue-close:hover {
+    background: rgba(201, 162, 39, 0.35);
   }
 </style>
 </head>
@@ -44,6 +123,16 @@
 
 <canvas id="app-canvas"></canvas>
 <div id="phase-label">Phase: Intro — Hourglass</div>
+
+<!-- RPG dialogue overlay — populated/shown by openDialogue() in section 15. -->
+<div id="dialogue-box" class="dialogue-hidden">
+  <div class="dialogue-panel">
+    <button id="dialogue-close" aria-label="Close dialogue">&times;</button>
+    <div id="dialogue-name" class="dialogue-name"></div>
+    <div id="dialogue-text" class="dialogue-text"></div>
+    <div class="dialogue-hint">Press Enter or click &times; to continue</div>
+  </div>
+</div>
 
 <!--
   ======================================================================
@@ -67,8 +156,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 // import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-// ^ Uncomment when you're ready to swap in a real hourglass or archway
-// model. See "SWAPPING IN A REAL GLTF MODEL" near the bottom of this file.
+// ^ Uncomment when you're ready to swap in real hourglass/archway/guide
+// models. See "SWAPPING IN A REAL GLTF MODEL" near the bottom of this file.
 
 /* ====================================================================
    1. RENDERER / SCENE / CAMERA
@@ -90,20 +179,19 @@ const scene = new THREE.Scene();
 
 // Start in a near-black studio void. This color is animated toward a
 // warm golden-hour desert sky during the DESERT REVEAL phase (see
-// updateLighting further down).
+// updateLighting further down), then dimmed again once we step inside
+// the colonnade (see updateHallwayLighting).
 scene.background = new THREE.Color(0x05050a);
 scene.fog = new THREE.FogExp2(0x05050a, 0.035);
 
 // Near plane starts intentionally TINY (0.001) because the intro camera
 // dive pushes right up against the sand mound. Once that close-up shot is
-// over we relax it (see the 'traveling' transition in the render loop) —
-// a permanently tiny near plane wastes depth-buffer precision across the
-// huge desert scene we're about to add.
+// over we relax it (see the 'traveling' transition in the render loop).
 const camera = new THREE.PerspectiveCamera(
   45,
   window.innerWidth / window.innerHeight,
   0.001,
-  1000 // covers the full dune field and the archway far in the distance
+  1000 // covers the full dune field, the archway, and the colonnade beyond it
 );
 
 /* ====================================================================
@@ -116,15 +204,13 @@ scene.add(ambientLight);
 
 // A hemisphere light gives a believable sky/ground color split once we
 // reach the desert. It starts fully desaturated/dim in the studio phase
-// and gets "switched on" during the reveal.
+// and gets "switched on" during the reveal, then dimmed again indoors.
 const hemiLight = new THREE.HemisphereLight(0x111122, 0x000000, 0.15);
 scene.add(hemiLight);
 
 // The hard studio key light — a tight spotlight that only needs to rake
 // across the small hourglass. It fades out completely during the reveal
-// and is replaced by `sunLight` (defined in section 6) for the desert,
-// since a spotlight's cone can't convincingly light a landscape hundreds
-// of units across.
+// and is replaced by `sunLight` (section 6) for the desert.
 const keyLight = new THREE.SpotLight(0xffffff, 6.0);
 keyLight.position.set(4, 8, 5);
 keyLight.angle = Math.PI / 10;   // narrow cone = "sharp" spotlight look
@@ -162,13 +248,12 @@ const BULB_RADIUS = 1.6;
 const BULB_HEIGHT = 3.2;
 
 // Semi-transparent "glass" — physically based transmission gives a much
-// more convincing glass look than plain alpha blending, at the cost of
-// being a bit more GPU-expensive (fine for a hero/intro scene).
+// more convincing glass look than plain alpha blending.
 const glassMaterial = new THREE.MeshPhysicalMaterial({
   color: 0xbfd9ff,
   metalness: 0,
   roughness: 0.05,
-  transmission: 1.0,      // makes it act like real glass, refracting the scene behind it
+  transmission: 1.0,
   thickness: 1.2,
   ior: 1.45,
   transparent: true,
@@ -178,7 +263,6 @@ const glassMaterial = new THREE.MeshPhysicalMaterial({
   side: THREE.DoubleSide,
 });
 
-// Top bulb: cone flipped so its apex points DOWN to meet the bottom bulb.
 const topBulbGeo = new THREE.ConeGeometry(BULB_RADIUS, BULB_HEIGHT, 24, 1, true);
 const topBulb = new THREE.Mesh(topBulbGeo, glassMaterial);
 topBulb.rotation.x = Math.PI; // flip so the apex faces the origin
@@ -187,8 +271,6 @@ topBulb.castShadow = true;
 topBulb.receiveShadow = true;
 hourglassGroup.add(topBulb);
 
-// Bottom bulb: default cone orientation already has its apex pointing up,
-// so it meets the top bulb's apex at y = 0 with no rotation needed.
 const bottomBulbGeo = new THREE.ConeGeometry(BULB_RADIUS, BULB_HEIGHT, 24, 1, true);
 const bottomBulb = new THREE.Mesh(bottomBulbGeo, glassMaterial);
 bottomBulb.position.y = -BULB_HEIGHT / 2;
@@ -196,13 +278,11 @@ bottomBulb.castShadow = true;
 bottomBulb.receiveShadow = true;
 hourglassGroup.add(bottomBulb);
 
-// Rough, metallic caps top & bottom (like the brass/iron fittings on a
-// real hourglass). A cylinder pretending to be a disc.
 const capMaterial = new THREE.MeshStandardMaterial({
   color: 0x8a7350,
   metalness: 1.0,
   roughness: 0.45,
-  transparent: true, // declared up front so the opacity fade in updateReveal() needs no runtime flag flips
+  transparent: true,
   opacity: 1.0,
 });
 const capGeo = new THREE.CylinderGeometry(BULB_RADIUS * 1.05, BULB_RADIUS * 1.05, 0.25, 24);
@@ -219,7 +299,6 @@ bottomCap.castShadow = true;
 bottomCap.receiveShadow = true;
 hourglassGroup.add(bottomCap);
 
-// Thin corner posts connecting the two caps, purely decorative framing.
 const postMaterial = capMaterial;
 const postGeo = new THREE.CylinderGeometry(0.06, 0.06, BULB_HEIGHT * 2 + 0.5, 8);
 const postPositions = [
@@ -235,13 +314,7 @@ postPositions.forEach(([x, y, z]) => {
   hourglassGroup.add(post);
 });
 
-/* --------------------------------------------------------------------
-   Settled sand — a small mound sitting at the bottom of the lower bulb.
-   This is the object the camera dives toward, and the point the desert
-   dune field visually "grows out of" once revealed.
-   -------------------------------------------------------------------- */
-
-const SAND_COLOR = 0xe1b382; // same warm desert tone used for the dunes later
+const SAND_COLOR = 0xe1b382; // same warm desert tone used for the dunes/stone later
 
 const sandMaterial = new THREE.MeshStandardMaterial({
   color: SAND_COLOR,
@@ -251,22 +324,44 @@ const sandMaterial = new THREE.MeshStandardMaterial({
 
 const sandMoundGeo = new THREE.ConeGeometry(BULB_RADIUS * 0.55, 1.1, 20);
 const sandMound = new THREE.Mesh(sandMoundGeo, sandMaterial);
-// Sits on the floor of the bottom bulb (bulb floor is at -BULB_HEIGHT).
 sandMound.position.y = -BULB_HEIGHT + 0.55;
 sandMound.castShadow = true;
 sandMound.receiveShadow = true;
 hourglassGroup.add(sandMound);
 
 /* ====================================================================
-   4. DESERT TERRAIN — wavy dunes via noise-displaced geometry
+   4. LEVEL LAYOUT CONSTANTS
+   ====================================================================
+   Every downstream system — the dune-flattening noise, the archway, the
+   colonnade, the guides, and the travel camera — needs to agree on where
+   things sit in the world. Declaring them all together, up front, means
+   changing one number here (e.g. how long the hallway is) automatically
+   keeps the terrain, the architecture, and the camera paths in sync.
+*/
+
+const ARCH_Z = -90;        // how far ahead (world -Z) of the hourglass the archway stands
+const ARCH_GAP = 9;        // half the distance between the two arch pillars == the arch's radius
+const PILLAR_WIDTH = 3.4;
+const PILLAR_DEPTH = 7;
+const PILLAR_HEIGHT = 12.5;
+const ARCH_TUBE = 1.4;
+
+const HALLWAY_START_Z = -98;         // just past the archway's inner face
+const HALLWAY_LENGTH = 190;
+const HALLWAY_END_Z = HALLWAY_START_Z - HALLWAY_LENGTH; // -288
+const COLUMN_OFFSET = 8;             // colonnade columns sit this far either side of the centerline
+const COLUMN_SPACING = 16;
+const N_COLUMNS = Math.floor(HALLWAY_LENGTH / COLUMN_SPACING); // columns per side
+
+/* ====================================================================
+   5. DESERT TERRAIN — wavy dunes via noise-displaced geometry
    ====================================================================
    A cheap, dependency-free 2D value-noise function (hash + smoothstep
    bilinear interpolation) driving a fractal-Brownian-motion (fbm) sum of
-   a few octaves. This is the same family of technique a vertex-shader
-   noise displacement would use — we just do it once on the CPU, at load
-   time, so we can also *query* dune height for placing the archway and
-   for the first-person camera flythrough later (a GPU-only vertex-shader
-   version can't be read back by JS without a slow readback trip).
+   a few octaves — done on the CPU at load time (rather than purely in a
+   vertex shader) specifically so `getTerrainHeight()` can also be READ
+   BACK by JS, to place the archway's feet and to keep the camera glued
+   to the surface during the travel flythrough.
 */
 
 function hash2D(x, z) {
@@ -277,7 +372,7 @@ function hash2D(x, z) {
 function valueNoise2D(x, z) {
   const xi = Math.floor(x), zi = Math.floor(z);
   const xf = x - xi, zf = z - zi;
-  const u = xf * xf * (3 - 2 * xf); // smoothstep, not linear — kills the visible grid-line artifacts
+  const u = xf * xf * (3 - 2 * xf); // smoothstep, not linear — kills grid-line artifacts
   const v = zf * zf * (3 - 2 * zf);
 
   const a = hash2D(xi, zi);
@@ -288,9 +383,6 @@ function valueNoise2D(x, z) {
   return THREE.MathUtils.lerp(THREE.MathUtils.lerp(a, b, u), THREE.MathUtils.lerp(c, d, u), v);
 }
 
-// Sums several octaves of the noise above (each higher-frequency layer
-// contributes less) to build up natural-looking dune silhouettes instead
-// of one repetitive wave pattern. Returns a value roughly in [0, 1].
 function fbm2D(x, z, octaves = 4, lacunarity = 2.0, gain = 0.5) {
   let amplitude = 0.5, frequency = 1.0, sum = 0, max = 0;
   for (let i = 0; i < octaves; i++) {
@@ -302,60 +394,60 @@ function fbm2D(x, z, octaves = 4, lacunarity = 2.0, gain = 0.5) {
   return sum / max;
 }
 
-// Converts the [0,1] noise into a signed world-space height offset:
-// - a slow, large-wavelength layer for the big rolling dune shapes
-// - a faster, small-wavelength layer for fine surface ripples
-// Also smoothly flattens the area right around the hourglass landing
-// spot (world origin) to a perfectly level pad, so the DESERT REVEAL
-// hands off from Step 1's sand mound with no jarring height "pop".
+// Converts noise into a signed world-space height offset, then smoothly
+// flattens a "capsule" running the length of the ENTIRE walked path — from
+// the hourglass landing spot, through the archway, to the far end of the
+// colonnade — so the flat stone hallway floor and archway foundation never
+// fight the bumpy dune mesh underneath them. Distance is measured from the
+// nearest point on that path (clamped to its Z-range), which gives a
+// rounded, seamless flatten zone with no hard edges anywhere.
 function getDuneOffset(x, z) {
-  const large = (fbm2D(x * 0.006, z * 0.006, 4) * 2 - 1) * 14;         // big dunes, +-14 units
+  const large = (fbm2D(x * 0.006, z * 0.006, 4) * 2 - 1) * 14;          // big dunes, +-14 units
   const ripples = (fbm2D(x * 0.05 + 50, z * 0.05 + 50, 3) * 2 - 1) * 1.6; // fine ripples, +-1.6 units
+  const raw = large + ripples;
 
-  const distFromLanding = Math.hypot(x, z);
-  const flattenRadius = 20;
-  const flattenT = THREE.MathUtils.clamp(distFromLanding / flattenRadius, 0, 1);
-  const flattenFactor = flattenT * flattenT * (3 - 2 * flattenT); // smoothstep 0 -> 1
+  const pathZNear = 10;                 // a little past the hourglass landing spot
+  const pathZFar = HALLWAY_END_Z - 20;  // a little past the far end of the colonnade
+  const clampedZ = THREE.MathUtils.clamp(z, pathZFar, pathZNear);
+  const distFromPath = Math.hypot(x, z - clampedZ);
 
-  return (large + ripples) * flattenFactor;
+  const flattenRadius = 16; // wider than the hallway (COLUMN_OFFSET=8) for a clean margin
+  const t = THREE.MathUtils.clamp(distFromPath / flattenRadius, 0, 1);
+  const flattenFactor = t * t * (3 - 2 * t); // smoothstep
+
+  return raw * flattenFactor;
 }
 
-// TERRAIN_BASE_Y matches Step 1's flat ground height exactly, so the dune
-// field sits at the same elevation the old flat plane used to.
-const TERRAIN_BASE_Y = -BULB_HEIGHT + 0.6;
+const TERRAIN_BASE_Y = -BULB_HEIGHT + 0.6; // matches Step 1's flat ground height exactly
 
 // Single source of truth for "how tall is the ground at this world x/z" —
-// used to build the mesh below AND to place the archway AND to keep the
-// travel camera glued to the dune surface. Change the noise above and
-// every dependent system (terrain, archway footing, camera) follows.
+// used to build the terrain mesh AND to place the archway/hallway AND to
+// keep the travel camera glued to the dune surface outside the colonnade.
 function getTerrainHeight(x, z) {
   return TERRAIN_BASE_Y + getDuneOffset(x, z);
 }
 
-const TERRAIN_SIZE = 600;      // total width/depth of the desert, in world units
-const TERRAIN_SEGMENTS = 160;  // vertex grid resolution per side — raise for smoother dunes, lower for performance
+const TERRAIN_SIZE = 700;      // total width/depth of the desert, in world units
+const TERRAIN_SEGMENTS = 160;  // vertex grid resolution per side
 
 const terrainGeo = new THREE.PlaneGeometry(TERRAIN_SIZE, TERRAIN_SIZE, TERRAIN_SEGMENTS, TERRAIN_SEGMENTS);
-terrainGeo.rotateX(-Math.PI / 2); // bake the "lay flat" rotation into the geometry itself (not just the mesh)
-                                  // so that after this, vertex.x/vertex.z already line up with world x/z.
+terrainGeo.rotateX(-Math.PI / 2); // bake the "lay flat" rotation into the geometry itself
 
 const posAttr = terrainGeo.attributes.position;
 for (let i = 0; i < posAttr.count; i++) {
   const x = posAttr.getX(i);
   const z = posAttr.getZ(i);
-  posAttr.setY(i, getDuneOffset(x, z)); // TERRAIN_BASE_Y is applied once via the mesh's own position, below
+  posAttr.setY(i, getDuneOffset(x, z)); // TERRAIN_BASE_Y applied once via the mesh's own position, below
 }
 posAttr.needsUpdate = true;
-terrainGeo.computeVertexNormals(); // CRITICAL: without this the dunes keep flat "plane" normals and won't
-                                    // actually catch the golden-hour light — they'd look like a painted texture
-                                    // instead of real bumps.
+terrainGeo.computeVertexNormals(); // essential — otherwise the dunes keep flat normals and won't shade
 
 const duneMaterial = new THREE.MeshStandardMaterial({
   color: SAND_COLOR,
-  roughness: 0.95, // matte, sun-baked sand — almost no specular highlight
+  roughness: 0.95,
   metalness: 0.0,
   transparent: true,
-  opacity: 0.0, // faded in during the desert reveal, same as Step 1's ground plane
+  opacity: 0.0, // faded in during the desert reveal
 });
 
 const duneTerrain = new THREE.Mesh(terrainGeo, duneMaterial);
@@ -364,18 +456,18 @@ duneTerrain.receiveShadow = true;
 scene.add(duneTerrain);
 
 /* ====================================================================
-   5. GOLDEN-HOUR SUN
+   6. GOLDEN-HOUR SUN
    ====================================================================
-   A proper DirectionalLight (parallel rays, like real sunlight) rather
-   than the studio SpotLight — a spotlight's cone falls off in a way that
-   can't evenly light a landscape hundreds of units wide. It stays fully
-   OFF (intensity 0) through the studio phase and ramps up alongside the
-   desert reveal in updateLighting().
+   A proper DirectionalLight (parallel rays) rather than the studio
+   SpotLight, since a spotlight's cone can't evenly light a landscape
+   hundreds of units wide. Off through the studio phase, ramps up with
+   the desert reveal, then dims (but doesn't fully die) once we step
+   into the colonnade — a little still rakes in between the columns.
 */
 
 const sunLight = new THREE.DirectionalLight(0xffc27a, 0);
-sunLight.position.set(140, 45, 90);      // low, raking angle — classic long golden-hour shadows
-sunLight.target.position.set(0, 0, -70); // aimed roughly at the middle of the dune field / travel path
+sunLight.position.set(140, 45, 90);
+sunLight.target.position.set(0, 0, -70);
 sunLight.castShadow = true;
 sunLight.shadow.mapSize.set(2048, 2048);
 sunLight.shadow.camera.left = -150;
@@ -389,27 +481,13 @@ scene.add(sunLight);
 scene.add(sunLight.target);
 
 /* ====================================================================
-   6. THE ROMAN ARCHWAY
+   7. THE ROMAN ARCHWAY
    ====================================================================
    A procedural triumphal-arch silhouette (loosely after the Arch of
-   Septimius Severus) built from primitives:
-     - BoxGeometry plinths + shafts for the two pillars
-     - a half TorusGeometry (arc = PI) spanning between the pillar tops
-       for the rounded overhead arch — its natural Z-axis "tube"
-       thickness becomes the passage depth once we scale it, so no extra
-       geometry is needed to make it a real walk-through tunnel instead
-       of a flat ring
-     - a BoxGeometry "attic" slab on top for a monumental silhouette
-   All materials are transparent and start at opacity 0 so the whole
-   monument fades into view together with the dunes (see updateReveal).
+   Septimius Severus): BoxGeometry pillars + a half TorusGeometry
+   (arc = PI) spanning between their tops, scaled along Z so its tube
+   reads as a real walk-through passage rather than a flat ring.
 */
-
-const ARCH_Z = -90;        // how far ahead (world -Z) of the hourglass the archway stands
-const ARCH_GAP = 9;        // half the distance between the two pillars == the arch's radius
-const PILLAR_WIDTH = 3.4;
-const PILLAR_DEPTH = 7;    // gives the passage real walk-through depth
-const PILLAR_HEIGHT = 12.5;
-const ARCH_TUBE = 1.4;     // radius of the arch band's cross-section
 
 function createRomanArchway() {
   const group = new THREE.Group();
@@ -421,16 +499,14 @@ function createRomanArchway() {
     color: 0xcfc4a8, roughness: 0.9, metalness: 0.02, transparent: true, opacity: 0,
   });
 
-  // Both pillars are leveled off a SINGLE shared height sample (rather
-  // than each sampling the dune noise at its own x) — real monuments
-  // stand on a leveled foundation, and it guarantees the arch's two feet
-  // (which assume equal pillar heights) actually meet the pillar tops.
+  // Both pillars share ONE height sample (rather than each sampling its
+  // own x) so the arch's two feet — which assume equal pillar heights —
+  // actually meet the tops cleanly.
   const baseY = getTerrainHeight(0, ARCH_Z);
 
   [-1, 1].forEach((side) => {
     const x = side * ARCH_GAP;
 
-    // Stepped plinth (base) — wider than the shaft, like a real pedestal.
     const plinth = new THREE.Mesh(
       new THREE.BoxGeometry(PILLAR_WIDTH + 1, 1.4, PILLAR_DEPTH + 1),
       marbleDark
@@ -438,7 +514,6 @@ function createRomanArchway() {
     plinth.position.set(x, baseY + 0.7, ARCH_Z);
     group.add(plinth);
 
-    // Main pillar shaft, resting directly on the plinth.
     const shaftHeight = PILLAR_HEIGHT - 1.4;
     const shaft = new THREE.Mesh(
       new THREE.BoxGeometry(PILLAR_WIDTH, shaftHeight, PILLAR_DEPTH),
@@ -448,24 +523,17 @@ function createRomanArchway() {
     group.add(shaft);
   });
 
-  // The rounded arch: TorusGeometry(radius, tube, radialSegments,
-  // tubularSegments, arc). arc = Math.PI sweeps exactly the TOP half of
-  // the ring — i.e. it already comes out as an upward arch shape whose
-  // two ends land at (+radius, 0) and (-radius, 0), precisely where the
-  // pillar tops are. No extra rotation needed.
+  // arc = Math.PI sweeps exactly the TOP half of the ring — an upward
+  // arch shape whose two ends land at (+radius,0) and (-radius,0), right
+  // where the pillar tops are. No extra rotation needed.
   const archCurve = new THREE.Mesh(
     new THREE.TorusGeometry(ARCH_GAP, ARCH_TUBE, 16, 48, Math.PI),
     marble
   );
   archCurve.position.set(0, baseY + PILLAR_HEIGHT, ARCH_Z);
-  // Scaling only the Z axis stretches the tube's depth into a real barrel
-  // vault without distorting the arc's curve (which lives entirely in
-  // local X/Y) — a cheap way to turn a thin ring into a "tunnel".
-  archCurve.scale.z = PILLAR_DEPTH / (ARCH_TUBE * 2);
+  archCurve.scale.z = PILLAR_DEPTH / (ARCH_TUBE * 2); // stretch the tube into a real barrel vault
   group.add(archCurve);
 
-  // Attic block on top, spanning the full width — the inscribed-panel
-  // silhouette you'd see above a real triumphal arch's curve.
   const atticY = baseY + PILLAR_HEIGHT + ARCH_GAP + ARCH_TUBE + 1.1;
   const attic = new THREE.Mesh(
     new THREE.BoxGeometry(ARCH_GAP * 2 + PILLAR_WIDTH * 1.6, 2.2, PILLAR_DEPTH + 1),
@@ -475,10 +543,7 @@ function createRomanArchway() {
   group.add(attic);
 
   group.traverse((child) => {
-    if (child.isMesh) {
-      child.castShadow = true;
-      child.receiveShadow = true;
-    }
+    if (child.isMesh) { child.castShadow = true; child.receiveShadow = true; }
   });
 
   return { group, materials: [marble, marbleDark] };
@@ -488,42 +553,230 @@ const { group: archwayGroup, materials: archMaterials } = createRomanArchway();
 scene.add(archwayGroup);
 
 /* ====================================================================
-   7. CAMERA CINEMATIC TRANSITION — the hourglass dive (Step 1, unchanged)
+   8. THE ROMAN COLONNADE HALLWAY
+   ====================================================================
+   Two rows of towering columns (CylinderGeometry shaft + BoxGeometry
+   base/capital), a flat stone floor, and a high ceiling. Warm SpotLights
+   hang between the columns, pooling dramatic light on the floor — only a
+   handful cast real shadows, since shadow maps are the single most
+   expensive thing a light can do and we already have the sun doing one.
+*/
+
+const HALLWAY_FLOOR_Y = getTerrainHeight(0, ARCH_Z); // flat by construction (see the path-flatten capsule above)
+const COLUMN_BASE_HEIGHT = 1;
+const COLUMN_SHAFT_HEIGHT = 11;
+const COLUMN_CAP_HEIGHT = 1;
+const COLUMN_TOTAL_HEIGHT = COLUMN_BASE_HEIGHT + COLUMN_SHAFT_HEIGHT + COLUMN_CAP_HEIGHT;
+const CEILING_Y = HALLWAY_FLOOR_Y + COLUMN_TOTAL_HEIGHT + 2.5;
+
+const hallwayGroup = new THREE.Group();
+scene.add(hallwayGroup);
+
+const stoneMaterial = new THREE.MeshStandardMaterial({ color: 0xcdbf9d, roughness: 0.85, metalness: 0.03 });
+const floorMaterial = new THREE.MeshStandardMaterial({ color: 0xb7a888, roughness: 0.92, metalness: 0.02 });
+const ceilingMaterial = new THREE.MeshStandardMaterial({
+  color: 0x8f8570, roughness: 0.95, metalness: 0.0, side: THREE.DoubleSide,
+});
+
+function createColumn(x, z) {
+  const group = new THREE.Group();
+
+  const base = new THREE.Mesh(new THREE.BoxGeometry(2.4, COLUMN_BASE_HEIGHT, 2.4), stoneMaterial);
+  base.position.y = COLUMN_BASE_HEIGHT / 2;
+  group.add(base);
+
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 1.0, COLUMN_SHAFT_HEIGHT, 20), stoneMaterial);
+  shaft.position.y = COLUMN_BASE_HEIGHT + COLUMN_SHAFT_HEIGHT / 2;
+  group.add(shaft);
+
+  const cap = new THREE.Mesh(new THREE.BoxGeometry(2.2, COLUMN_CAP_HEIGHT, 2.2), stoneMaterial);
+  cap.position.y = COLUMN_BASE_HEIGHT + COLUMN_SHAFT_HEIGHT + COLUMN_CAP_HEIGHT / 2;
+  group.add(cap);
+
+  group.traverse((child) => {
+    if (child.isMesh) { child.castShadow = true; child.receiveShadow = true; }
+  });
+
+  group.position.set(x, HALLWAY_FLOOR_Y, z);
+  return group;
+}
+
+// One Z position per column pair, spaced evenly down the hallway. Stored
+// for reuse below so the Roman guides can stand next to specific columns.
+const columnZs = [];
+for (let i = 0; i < N_COLUMNS; i++) {
+  const z = HALLWAY_START_Z - (i + 0.5) * COLUMN_SPACING;
+  columnZs.push(z);
+  hallwayGroup.add(createColumn(-COLUMN_OFFSET, z));
+  hallwayGroup.add(createColumn(COLUMN_OFFSET, z));
+}
+
+const hallwayCenterZ = (HALLWAY_START_Z + HALLWAY_END_Z) / 2;
+
+const hallwayFloor = new THREE.Mesh(
+  new THREE.PlaneGeometry(COLUMN_OFFSET * 2 + 8, HALLWAY_LENGTH + 8),
+  floorMaterial
+);
+hallwayFloor.rotation.x = -Math.PI / 2;
+hallwayFloor.position.set(0, HALLWAY_FLOOR_Y, hallwayCenterZ);
+hallwayFloor.receiveShadow = true;
+hallwayGroup.add(hallwayFloor);
+
+const hallwayCeiling = new THREE.Mesh(
+  new THREE.PlaneGeometry(COLUMN_OFFSET * 2 + 8, HALLWAY_LENGTH + 8),
+  ceilingMaterial
+);
+hallwayCeiling.rotation.x = Math.PI / 2;
+hallwayCeiling.position.set(0, CEILING_Y, hallwayCenterZ);
+hallwayGroup.add(hallwayCeiling);
+
+// One lamp per GAP between consecutive column pairs — i.e. genuinely
+// "between the columns" rather than colocated with one.
+const lampZs = [];
+for (let i = 0; i < columnZs.length - 1; i++) {
+  lampZs.push((columnZs[i] + columnZs[i + 1]) / 2);
+}
+
+const MAX_SHADOW_SPOTLIGHTS = 4; // cap how many colonnade lights get a real (expensive) shadow map
+let shadowSpotlightCount = 0;
+
+lampZs.forEach((z, i) => {
+  const spot = new THREE.SpotLight(0xffaa55, 4.5, 22, Math.PI / 5, 0.55, 1.5);
+  spot.position.set(0, CEILING_Y - 1.5, z);
+  spot.target.position.set(0, HALLWAY_FLOOR_Y, z);
+  hallwayGroup.add(spot);
+  hallwayGroup.add(spot.target);
+
+  if (shadowSpotlightCount < MAX_SHADOW_SPOTLIGHTS && i % Math.ceil(lampZs.length / MAX_SHADOW_SPOTLIGHTS) === 0) {
+    spot.castShadow = true;
+    spot.shadow.mapSize.set(1024, 1024);
+    spot.shadow.bias = -0.001;
+    shadowSpotlightCount++;
+  }
+});
+
+/* ====================================================================
+   9. THE INTERACTIVE ROMAN GUIDES
+   ====================================================================
+   Each guide is a Group (cylinder body + sphere head + a thin torus
+   sash) tagged with a name and a pool of dialogue lines in userData —
+   that's what the raycaster in section 15 reads when you click one.
+*/
+
+const GUIDES = [
+  {
+    name: 'Marcus the Historian',
+    color: 0x8c1c26, // crimson tunic
+    side: -1,
+    columnIndex: 2,
+    lines: [
+      "This colonnade echoes the Roman Forum — marble columns once lined the sacred way to the temples.",
+      "The arch you passed under recalls Septimius Severus's own, raised in 203 AD to mark his victories in Parthia.",
+      "Romans paved their roads in layers of fitted stone so precisely, some are still walkable two thousand years later.",
+    ],
+  },
+  {
+    name: 'Gaius the Comedian',
+    color: 0xc9a227, // gold tunic
+    side: 1,
+    columnIndex: 4,
+    lines: [
+      "Why did the Roman chicken cross the road? To get to the other side of the empire!",
+      "I asked a Roman for directions once. He just said 'all roads lead to Rome.' Not helpful — I was already in Rome.",
+      "A centurion walks into a bar, holds up two fingers, and says: 'Five beers, please.'",
+    ],
+  },
+  {
+    name: 'Livia the Merchant',
+    color: 0x8c1c26,
+    side: -1,
+    columnIndex: 7,
+    lines: [
+      "I've traded silk from the East and sand-glass from these very dunes — everything passes through this hall eventually.",
+      "A caravan can cross the desert in a fortnight, if the winds are kind and the guides are honest.",
+    ],
+  },
+  {
+    name: 'Quintus the Guide',
+    color: 0xc9a227,
+    side: 1,
+    columnIndex: 9,
+    lines: [
+      "Keep walking, traveler — beyond this hall lies the atrium, where the builder's own work and deeds are on display.",
+      "Not every hall leads somewhere. This one does.",
+    ],
+  },
+];
+
+function createGuide(def) {
+  const z = columnZs[def.columnIndex];
+  const x = def.side * (COLUMN_OFFSET - 2.2); // stand just inside the column line, clear of the walking path
+
+  const group = new THREE.Group();
+
+  const tunicMaterial = new THREE.MeshStandardMaterial({ color: def.color, roughness: 0.6, metalness: 0.05 });
+  const skinMaterial = new THREE.MeshStandardMaterial({ color: 0xd8a878, roughness: 0.7 });
+  const sashMaterial = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.6, roughness: 0.35 });
+
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.68, 2.2, 16), tunicMaterial);
+  body.position.y = 1.1;
+  group.add(body);
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 16), skinMaterial);
+  head.position.y = 2.5;
+  group.add(head);
+
+  const sash = new THREE.Mesh(new THREE.TorusGeometry(0.58, 0.06, 8, 16), sashMaterial);
+  sash.rotation.x = Math.PI / 2;
+  sash.position.y = 1.45;
+  group.add(sash);
+
+  group.traverse((child) => {
+    if (child.isMesh) { child.castShadow = true; child.receiveShadow = true; }
+  });
+
+  group.position.set(x, HALLWAY_FLOOR_Y, z);
+  group.lookAt(0, HALLWAY_FLOOR_Y + 1.1, z); // face the walking path, not down the hall
+
+  group.name = def.name;
+  group.userData.isGuide = true;
+  group.userData.name = def.name;
+  group.userData.lines = def.lines;
+  group.userData.tunicColor = def.color;
+
+  hallwayGroup.add(group);
+  return group;
+}
+
+const guideGroups = GUIDES.map(createGuide);
+
+/* ====================================================================
+   10. CAMERA CINEMATIC TRANSITION — the hourglass dive (Step 1, unchanged)
    ====================================================================
    HOW THE INTERPOLATION WORKS
    ----------------------------------------------------------------
-   - `camStart` / `camEnd` are two fixed Vector3 positions: a wide
-     establishing shot, and a position just above the sand mound's tip.
-   - `lookStart` / `lookEnd` are the two points the camera aims at across
-     the same span (hourglass center -> sand mound surface).
-   - Every frame we compute `t`, a 0→1 progress value from elapsed time
-     divided by total duration, run it through an easing curve so the
-     motion isn't robotically linear, then feed both eased values into
-     `Vector3.lerpVectors(a, b, easedT)` to get the interpolated position
-     and look-at target for that frame.
-   - This runs inside the requestAnimationFrame loop (via THREE.Clock)
-     rather than setTimeout/CSS, so it always stays in lockstep with what
-     is actually being rendered.
+   - `camStart` / `camEnd` are two fixed Vector3 positions; `lookStart` /
+     `lookEnd` are the two points the camera aims at across the same span.
+   - Every frame we compute `t` (0→1, elapsed/duration), ease it with
+     `easeInOutCubic`, then feed both eased values into
+     `Vector3.lerpVectors(a, b, easedT)` for that frame's camera position
+     and look-at target.
+   - This runs inside the requestAnimationFrame loop via THREE.Clock, so
+     it always stays in lockstep with what's actually being rendered.
 */
 
-// The sand mound is a cone of height 1.1 sitting on the bulb floor: its
-// apex sits at (-BULB_HEIGHT + 1.1). camEnd stays ABOVE that apex so the
-// camera ends up hovering just outside the mound's surface instead of
-// clipping through solid geometry.
 const SAND_APEX_Y = -BULB_HEIGHT + 1.1;
 
-const camStart = new THREE.Vector3(0, 2.5, 11);                  // wide establishing shot
-const camEnd = new THREE.Vector3(0.35, SAND_APEX_Y + 0.25, 0.5); // hovering just above the mound's tip
+const camStart = new THREE.Vector3(0, 2.5, 11);
+const camEnd = new THREE.Vector3(0.35, SAND_APEX_Y + 0.25, 0.5);
 
-const lookStart = new THREE.Vector3(0, 0, 0);                  // frame the whole hourglass
-const lookEnd = new THREE.Vector3(0, SAND_APEX_Y - 0.3, 0.15); // aim down at the mound's slope
+const lookStart = new THREE.Vector3(0, 0, 0);
+const lookEnd = new THREE.Vector3(0, SAND_APEX_Y - 0.3, 0.15);
 
 camera.position.copy(camStart);
 camera.lookAt(lookStart);
 
-// Scratch vectors reused every frame (by both the dive AND the travel
-// below) instead of allocating new ones — keeps the render loop
-// garbage-collector friendly.
+// Scratch vectors reused every frame by both the dive AND the travel below.
 const _camPos = new THREE.Vector3();
 const _lookPos = new THREE.Vector3();
 
@@ -534,60 +787,47 @@ function easeInOutCubic(t) {
 }
 
 /* ====================================================================
-   8. ORBIT CONTROLS
+   11. ORBIT CONTROLS
    ====================================================================
    Disabled while either scripted camera sequence (the dive, then the
-   travel) is driving the camera, so mouse input can't fight the
-   choreography. Enabled only once the camera has glided under the arch
-   and comes to rest, handing look-around control to the visitor.
+   travel) drives the camera. Enabled once the glide finishes at the
+   hallway threshold — from then on it's repurposed as a "look-around on
+   a leash" rig for first-person hallway navigation (see section 13).
 */
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enabled = false;
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
-controls.minDistance = 1;
-controls.maxDistance = 60;
 controls.target.copy(lookEnd);
 
 /* ====================================================================
-   9. THE TRAVEL ANIMATION — gliding across the dunes to the archway
+   12. THE TRAVEL ANIMATION — gliding across the dunes to the colonnade
    ====================================================================
-   Same lerpVectors + easing technique as the hourglass dive above, with
-   one addition: after computing the eased X/Z position, we OVERRIDE the
-   camera's Y with the actual dune height sampled at that X/Z (section 4's
-   getTerrainHeight). That's what makes this read as a first-person
-   tracking shot hugging the rolling dunes, rather than a camera sliding
-   along a perfectly flat straight line.
+   Same lerpVectors + easing technique as the hourglass dive, plus one
+   addition: after computing the eased X/Z position, we OVERRIDE the
+   camera's Y with the actual dune height sampled at that X/Z, so the
+   shot hugs the rolling dunes instead of sliding along a flat line.
 
-   ALL FOUR NUMBERS BELOW ARE THE ONES TO TUNE FOR PACING/FRAMING:
+   THE NUMBERS BELOW ARE THE ONES TO TUNE FOR PACING/FRAMING:
 */
 
-const TRAVEL_EYE_HEIGHT = 2.2;      // how high above the dune surface the "first-person" eye sits
-const TRAVEL_DURATION = 9;          // seconds — total glide time from the sand mound to past the arch
-const TRAVEL_OVERSHOOT = 30;        // how far past the archway (world -Z) the camera ends its glide
-const TRAVEL_LOOKAHEAD = 60;        // how far past the *look-at* target leads the final camera position
+const TRAVEL_EYE_HEIGHT = 2.2; // "first-person" eye height above the ground, both outside and in the hallway
+const TRAVEL_DURATION = 9;    // seconds — glide time from the sand mound to the hallway threshold
+const TRAVEL_LOOKAHEAD = 60;  // how far past the *look-at* target leads the final camera position
 
-// Start exactly where the hourglass dive left off — no seam between phases.
 const travelStart = camEnd.clone();
 const travelLookStart = lookEnd.clone();
 
-const travelEndX = 0;
-const travelEndZ = ARCH_Z - TRAVEL_OVERSHOOT;
+// The glide now ends exactly at the colonnade's threshold — HALLWAY_START_Z
+// — handing off to manual first-person walking right as you cross into it.
 const travelEnd = new THREE.Vector3(
-  travelEndX,
-  getTerrainHeight(travelEndX, travelEndZ) + TRAVEL_EYE_HEIGHT,
-  travelEndZ
+  0,
+  getTerrainHeight(0, HALLWAY_START_Z) + TRAVEL_EYE_HEIGHT,
+  HALLWAY_START_Z
 );
 
-// The look-at target leads further ahead than the camera's final resting
-// spot, so the last frame of the glide is still gazing forward through
-// the archway rather than staring down at the ground underfoot.
-const travelLookEndZ = ARCH_Z - TRAVEL_LOOKAHEAD;
-const travelLookEnd = new THREE.Vector3(
-  0,
-  getTerrainHeight(0, travelLookEndZ) + TRAVEL_EYE_HEIGHT,
-  travelLookEndZ
-);
+const travelLookEndZ = HALLWAY_START_Z - TRAVEL_LOOKAHEAD;
+const travelLookEnd = new THREE.Vector3(0, HALLWAY_FLOOR_Y + TRAVEL_EYE_HEIGHT, travelLookEndZ);
 
 function updateCameraTravel(travelElapsed) {
   const t = Math.min(travelElapsed / TRAVEL_DURATION, 1);
@@ -597,30 +837,202 @@ function updateCameraTravel(travelElapsed) {
   _lookPos.lerpVectors(travelLookStart, travelLookEnd, eased);
 
   camera.position.copy(_camPos);
-  // Terrain-following Y: comment this single line out to fall back to a
-  // perfectly straight-line glide between travelStart and travelEnd.
+  // Terrain-following Y — comment out to fall back to a straight-line glide.
   camera.position.y = getTerrainHeight(camera.position.x, camera.position.z) + TRAVEL_EYE_HEIGHT;
 
   camera.lookAt(_lookPos);
-  controls.target.copy(_lookPos); // keeps OrbitControls in sync so handoff at t=1 has no snap
+  controls.target.copy(_lookPos);
 
   return t;
 }
 
 /* ====================================================================
-   10. SEQUENCE TIMING / STATE MACHINE
+   13. FIRST-PERSON HALLWAY NAVIGATION
+   ====================================================================
+   Movement: the mouse wheel (or Arrow/W-S keys) sets a `targetPlayerZ`,
+   clamped to stay inside the hallway. Each frame `playerZ` eases toward
+   it with `THREE.MathUtils.damp` — an exponential, FRAME-RATE-INDEPENDENT
+   smoothing function (unlike a fixed-factor lerp, its result doesn't
+   change if your monitor runs at 60Hz vs 144Hz). Only the resulting
+   PER-FRAME DELTA is applied to the camera, which is what keeps X locked
+   dead-center — we only ever translate along Z, never sideways.
+
+   Look-around: OrbitControls always aims the camera at `controls.target`.
+   By keeping that target just a hair in front of the camera (radius
+   LOOK_OFFSET_RADIUS) and pinning min/maxDistance to that same radius, a
+   mouse-drag "orbit" only swings the camera through a tiny arc around a
+   point right in front of your face — which reads as turning your head,
+   not walking around an object. Translating camera + target by the same
+   per-frame delta then moves this whole tiny "look rig" forward together
+   without disturbing whatever direction you're currently looking.
+*/
+
+const WALK_SPEED = 14;          // units/second while an arrow/W-S key is held
+const SCROLL_SPEED = 0.05;      // world units moved per wheel "tick" (deltaY)
+const HALLWAY_DAMPING = 6;      // higher = snappier stop/start, lower = floatier glide
+const LOOK_OFFSET_RADIUS = 0.15; // how far ahead of the camera the OrbitControls target sits
+
+let playerZ = 0;
+let targetPlayerZ = 0;
+const keyState = { forward: false, backward: false };
+
+function clampPlayerZ(z) {
+  // A small margin keeps the camera from ever touching the geometry at
+  // either end of the hallway.
+  return THREE.MathUtils.clamp(z, HALLWAY_END_Z + 6, HALLWAY_START_Z);
+}
+
+function updateHallwayMovement(dt) {
+  if (keyState.forward) targetPlayerZ -= WALK_SPEED * dt;
+  if (keyState.backward) targetPlayerZ += WALK_SPEED * dt;
+  targetPlayerZ = clampPlayerZ(targetPlayerZ);
+
+  const previousPlayerZ = playerZ;
+  playerZ = THREE.MathUtils.damp(playerZ, targetPlayerZ, HALLWAY_DAMPING, dt);
+  const deltaZ = playerZ - previousPlayerZ;
+
+  camera.position.z += deltaZ;
+  controls.target.z += deltaZ;
+}
+
+function enterHallwayNavigation() {
+  playerZ = camera.position.z;
+  targetPlayerZ = playerZ;
+
+  const forward = new THREE.Vector3();
+  camera.getWorldDirection(forward);
+  controls.target.copy(camera.position).addScaledVector(forward, LOOK_OFFSET_RADIUS);
+
+  controls.minDistance = LOOK_OFFSET_RADIUS;
+  controls.maxDistance = LOOK_OFFSET_RADIUS;
+  controls.enableZoom = false; // the wheel drives walking now, not zoom/dolly
+  controls.enablePan = false;  // no sideways drift — stay centered in the hallway
+  controls.minPolarAngle = 0.15;
+  controls.maxPolarAngle = Math.PI - 0.15;
+  controls.enabled = true;
+}
+
+window.addEventListener('wheel', (event) => {
+  if (sequenceState !== 'hallway' || dialogueOpen) return;
+  targetPlayerZ = clampPlayerZ(targetPlayerZ - event.deltaY * SCROLL_SPEED);
+}, { passive: true });
+
+window.addEventListener('keydown', (event) => {
+  if (event.key === 'ArrowUp' || event.key === 'w' || event.key === 'W') keyState.forward = true;
+  if (event.key === 'ArrowDown' || event.key === 's' || event.key === 'S') keyState.backward = true;
+  if (dialogueOpen && event.key === 'Enter') { event.preventDefault(); closeDialogue(); }
+});
+
+window.addEventListener('keyup', (event) => {
+  if (event.key === 'ArrowUp' || event.key === 'w' || event.key === 'W') keyState.forward = false;
+  if (event.key === 'ArrowDown' || event.key === 's' || event.key === 'S') keyState.backward = false;
+});
+
+/* ====================================================================
+   14. HALLWAY LIGHTING TRANSITION
+   ====================================================================
+   Dims the outdoor ambient/hemisphere/sun lighting down to something
+   "structural" the moment you cross into the colonnade, letting the
+   warm SpotLights from section 8 become the dominant light source.
+*/
+
+const HALLWAY_LIGHT_TRANSITION_DURATION = 2.5;
+let hallwayEnterElapsed = null;
+let hallwayLightFrom = null;
+
+function beginHallwayLightTransition(elapsed) {
+  hallwayEnterElapsed = elapsed;
+  hallwayLightFrom = {
+    ambient: ambientLight.intensity,
+    hemi: hemiLight.intensity,
+    sun: sunLight.intensity,
+  };
+}
+
+function updateHallwayLighting(elapsed) {
+  const t = THREE.MathUtils.clamp((elapsed - hallwayEnterElapsed) / HALLWAY_LIGHT_TRANSITION_DURATION, 0, 1);
+  const eased = easeInOutCubic(t);
+
+  ambientLight.intensity = THREE.MathUtils.lerp(hallwayLightFrom.ambient, 0.18, eased);
+  hemiLight.intensity = THREE.MathUtils.lerp(hallwayLightFrom.hemi, 0.15, eased);
+  sunLight.intensity = THREE.MathUtils.lerp(hallwayLightFrom.sun, 0.4, eased); // a little still filters in between columns
+}
+
+/* ====================================================================
+   15. MOUSE CLICK INTERACTIVITY — Raycasting & the RPG dialogue box
    ==================================================================== */
 
-const ZOOM_DURATION = 4.5;     // seconds — camera dive into the sand
-const FADE_START = 3.4;        // seconds — hourglass starts fading before the dive fully ends
-const FADE_DURATION = 1.6;     // seconds — how long the glass fade + desert fade-in takes
+const raycaster = new THREE.Raycaster();
+const pointerNDC = new THREE.Vector2();
 
-// 'intro'     — camera dives into the hourglass sand (section 7)
+const dialogueBox = document.getElementById('dialogue-box');
+const dialogueNameEl = document.getElementById('dialogue-name');
+const dialogueTextEl = document.getElementById('dialogue-text');
+const dialogueCloseBtn = document.getElementById('dialogue-close');
+
+let dialogueOpen = false;
+
+function pickGuideAt(clientX, clientY) {
+  pointerNDC.x = (clientX / window.innerWidth) * 2 - 1;
+  pointerNDC.y = -(clientY / window.innerHeight) * 2 + 1;
+  raycaster.setFromCamera(pointerNDC, camera);
+
+  const hits = raycaster.intersectObjects(guideGroups, true); // true: also test child meshes (body/head/sash)
+  if (hits.length === 0) return null;
+
+  // Guide meshes are children of a tagged Group — walk up until we find it.
+  let obj = hits[0].object;
+  while (obj && !obj.userData.isGuide) obj = obj.parent;
+  return obj;
+}
+
+function openDialogue(guide) {
+  dialogueOpen = true;
+  controls.enabled = false; // pause camera movement AND look-around while talking
+
+  const { name, lines, tunicColor } = guide.userData;
+  dialogueNameEl.textContent = name;
+  dialogueNameEl.style.background = '#' + tunicColor.toString(16).padStart(6, '0');
+  dialogueTextEl.textContent = lines[Math.floor(Math.random() * lines.length)];
+
+  dialogueBox.classList.remove('dialogue-hidden');
+}
+
+function closeDialogue() {
+  dialogueOpen = false;
+  dialogueBox.classList.add('dialogue-hidden');
+  if (sequenceState === 'hallway') controls.enabled = true; // let the user walk (and look) again
+}
+
+canvas.addEventListener('click', (event) => {
+  if (sequenceState !== 'hallway' || dialogueOpen) return;
+  const guide = pickGuideAt(event.clientX, event.clientY);
+  if (guide) openDialogue(guide);
+});
+
+// A hover cursor makes the guides read as clickable before you try.
+canvas.addEventListener('pointermove', (event) => {
+  if (sequenceState !== 'hallway' || dialogueOpen) { canvas.style.cursor = 'default'; return; }
+  canvas.style.cursor = pickGuideAt(event.clientX, event.clientY) ? 'pointer' : 'default';
+});
+
+dialogueCloseBtn.addEventListener('click', closeDialogue);
+
+/* ====================================================================
+   16. SEQUENCE TIMING / STATE MACHINE
+   ==================================================================== */
+
+const ZOOM_DURATION = 4.5;
+const FADE_START = 3.4;
+const FADE_DURATION = 1.6;
+
+// 'intro'     — camera dives into the hourglass sand (section 10)
 // 'revealing' — hourglass fades out, dunes + archway + golden light fade in
-// 'traveling' — first-person glide across the dunes, under the archway (section 9)
-// 'exploring' — glide has finished; OrbitControls hands mouse-look to the visitor
+// 'traveling' — first-person glide across the dunes to the colonnade (section 12)
+// 'hallway'   — glide has finished; the visitor walks/looks freely and can talk to guides
 let sequenceState = 'intro';
-let travelStartElapsed = null; // stamped the instant we enter 'traveling', so travel timing is independent of reveal timing
+let travelStartElapsed = null;
+let lastElapsed = 0; // used to derive a per-frame dt without double-consuming THREE.Clock
 
 const clock = new THREE.Clock();
 
@@ -642,15 +1054,9 @@ function updateReveal(elapsed) {
   const fadeT = THREE.MathUtils.clamp((elapsed - FADE_START) / FADE_DURATION, 0, 1);
   const eased = easeInOutCubic(fadeT);
 
-  // Fade the glass + metal-cap materials out (sand stays put — the dune
-  // field is meant to visually grow out from underneath it).
   glassMaterial.opacity = 1 - eased;
   capMaterial.opacity = 1 - eased;
 
-  // Fade the dunes AND the archway in together, in place — no position
-  // animation on the terrain this time (Step 1 rose the ground plane into
-  // place, but doing that here would desync it from the archway, which
-  // is built at a fixed absolute height).
   duneMaterial.opacity = eased;
   archMaterials.forEach((m) => { m.opacity = eased; });
 
@@ -660,14 +1066,12 @@ function updateReveal(elapsed) {
 }
 
 function updateLighting(eased) {
-  // Studio -> golden-hour desert sky color.
   const studioColor = new THREE.Color(0x05050a);
   const goldenSkyColor = new THREE.Color(0xffb27a);
   scene.background.copy(studioColor).lerp(goldenSkyColor, eased);
   scene.fog.color.copy(scene.background);
-  scene.fog.density = THREE.MathUtils.lerp(0.035, 0.004, eased); // clear air with a light golden haze
+  scene.fog.density = THREE.MathUtils.lerp(0.035, 0.004, eased);
 
-  // Ambient + hemisphere brighten into warm open daylight.
   ambientLight.intensity = THREE.MathUtils.lerp(0.6, 0.55, eased);
   ambientLight.color.set(0x404060).lerp(new THREE.Color(0xffdfb0), eased);
 
@@ -675,23 +1079,21 @@ function updateLighting(eased) {
   hemiLight.color.set(0x111122).lerp(new THREE.Color(0xffb37a), eased);
   hemiLight.groundColor.set(0x000000).lerp(new THREE.Color(SAND_COLOR), eased);
 
-  // Studio spotlight fades all the way out...
   keyLight.intensity = THREE.MathUtils.lerp(6.0, 0, eased);
   rimLight.intensity = THREE.MathUtils.lerp(1.2, 0, eased);
 
-  // ...while the golden-hour sun fades in to take over as the scene's
-  // single dominant light source, casting long low-angle shadows across
-  // the dunes and through the archway.
   sunLight.intensity = THREE.MathUtils.lerp(0, 2.4, eased);
 }
 
 /* ====================================================================
-   11. RENDER LOOP
+   17. RENDER LOOP
    ==================================================================== */
 
 function animate() {
   requestAnimationFrame(animate);
   const elapsed = clock.getElapsedTime();
+  const dt = elapsed - lastElapsed; // manual per-frame delta — see note on `lastElapsed` above
+  lastElapsed = elapsed;
 
   if (sequenceState === 'intro') {
     updateCameraDive(elapsed);
@@ -702,8 +1104,6 @@ function animate() {
   }
 
   if (sequenceState === 'revealing') {
-    // Keep driving the camera dive until it fully completes, in parallel
-    // with the fade (the two overlap on purpose for a smoother handoff).
     if (elapsed < ZOOM_DURATION) {
       updateCameraDive(elapsed);
     }
@@ -711,9 +1111,9 @@ function animate() {
     if (fadeT >= 1 && elapsed >= ZOOM_DURATION) {
       sequenceState = 'traveling';
       travelStartElapsed = elapsed;
-      hourglassGroup.visible = false; // fully faded — stop rendering/shadowing it
-      keyLight.visible = false;       // studio rig is done; sunLight now carries the whole scene
-      camera.near = 0.05;             // safe now that we're not millimeters from geometry — restores depth precision
+      hourglassGroup.visible = false;
+      keyLight.visible = false;
+      camera.near = 0.05; // safe now that we're not millimeters from geometry
       camera.updateProjectionMatrix();
       phaseLabel.textContent = 'Phase: Riding the Dunes to the Archway';
     }
@@ -723,15 +1123,20 @@ function animate() {
     const travelElapsed = elapsed - travelStartElapsed;
     const t = updateCameraTravel(travelElapsed);
     if (t >= 1) {
-      sequenceState = 'exploring';
-      phaseLabel.textContent = 'Phase: At the Archway — drag to look around';
+      sequenceState = 'hallway';
+      enterHallwayNavigation();
+      beginHallwayLightTransition(elapsed);
+      phaseLabel.textContent = 'Phase: The Colonnade — scroll/arrows to walk, drag to look, click a guide to talk';
       phaseLabel.style.opacity = '0';
-      controls.enabled = true; // pause the scripted movement, hand control to the mouse
     }
   }
 
-  if (sequenceState === 'exploring') {
-    controls.update();
+  if (sequenceState === 'hallway') {
+    updateHallwayLighting(elapsed);
+    if (!dialogueOpen) {
+      updateHallwayMovement(dt);
+      controls.update();
+    }
   }
 
   renderer.render(scene, camera);
@@ -740,7 +1145,7 @@ function animate() {
 animate();
 
 /* ====================================================================
-   12. RESPONSIVE RESIZE
+   18. RESPONSIVE RESIZE
    ==================================================================== */
 
 window.addEventListener('resize', () => {
@@ -750,50 +1155,23 @@ window.addEventListener('resize', () => {
 });
 
 /* ====================================================================
-   13. SWAPPING IN REAL GLTF MODELS (for later steps)
+   19. SWAPPING IN REAL GLTF MODELS (for later steps)
    ====================================================================
-   HOURGLASS: `hourglassGroup` currently holds procedural placeholder
-   geometry (cones + cylinders). To replace it with a modeled/textured
-   .gltf/.glb:
+   HOURGLASS / ARCHWAY: see the notes carried over from Steps 1-2 — the
+   short version is: load into the existing `hourglassGroup` /
+   `archwayGroup`, push real materials into `archMaterials` so the fade
+   in updateReveal() keeps working, and re-check the position constants
+   that assume the placeholder geometry's dimensions.
 
-   1. Uncomment the GLTFLoader import at the top of this file.
-   2. Stop adding the placeholder meshes (topBulb, bottomBulb, topCap,
-      bottomCap, the corner posts) — keep `sandMound` unless your model
-      includes its own sand, since the camera dive targets its position.
-   3. Load into the SAME group so the fade/animation code keeps working:
-
-        const loader = new GLTFLoader();
-        loader.load('models/hourglass.glb', (gltf) => {
-          hourglassGroup.add(gltf.scene);
-          gltf.scene.traverse((child) => {
-            if (child.isMesh) {
-              child.castShadow = true;
-              child.receiveShadow = true;
-              child.material.transparent = true; // required for opacity fades
-            }
-          });
-        });
-
-   4. Update `updateReveal()` to fade your model's real material(s)
-      instead of (or alongside) `glassMaterial` / `capMaterial`.
-   5. Re-check `camEnd` / `lookEnd` — they're tuned to the procedural sand
-      mound's position and will need adjusting to match your model.
-
-   ROMAN ARCHWAY: `archwayGroup` currently holds the procedural pillars +
-   torus arch from `createRomanArchway()`. To swap in a modeled arch:
-
-   1. Replace the body of `createRomanArchway()` with a GLTFLoader call
-      that adds the loaded scene to `group`, collecting references to its
-      real materials into the returned `materials` array (the same array
-      `updateReveal()` already fades via `archMaterials.forEach(...)`).
-   2. Position/scale the loaded scene so its passage still spans roughly
-      `ARCH_GAP * 2` wide at `x = 0, z = ARCH_Z`, resting on
-      `getTerrainHeight(0, ARCH_Z)` — that's what the travel camera in
-      section 9 is aimed at and glides through.
-
-   Everything else — both camera lerps, the easing curve, the lighting
-   transition, the dune/archway reveal, the OrbitControls handoff — is
-   decoupled from the placeholder geometry and needs no changes.
+   COLONNADE COLUMNS / GUIDES: `createColumn()` and `createGuide()` are
+   the two functions to replace. Each already returns/adds a single
+   Group positioned at a given (x, z) — swap the primitive meshes inside
+   for a GLTFLoader call that loads into that same group, and everything
+   that depends on position (the column spacing loop, `columnZs`, the
+   guides' `columnIndex` lookups) keeps working unmodified. For guides,
+   keep setting `group.userData.isGuide / .name / .lines / .tunicColor` on
+   whatever group you return — that's the only contract section 15's
+   raycaster and dialogue box actually depend on.
 */
 </script>
 </body>
