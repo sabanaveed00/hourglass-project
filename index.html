@@ -3,120 +3,134 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Step 3 — The Roman Colonnade &amp; Interactive Guides</title>
+<title>Step 4 — The Great Skill Hall</title>
 <style>
-  /* ------------------------------------------------------------------ */
-  /* Full-bleed canvas setup. No scrollbars, no margins, fills viewport. */
-  /* ------------------------------------------------------------------ */
   html, body {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    background: #05050a;
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    overflow: hidden; background: #05050a;
     font-family: 'Segoe UI', system-ui, sans-serif;
   }
+  #app-canvas { display: block; width: 100vw; height: 100vh; }
 
-  #app-canvas {
-    display: block;
-    width: 100vw;
-    height: 100vh;
-  }
-
-  /* Small on-screen label so you can see which phase the sequence is in
-     while you tune timings. Purely a dev aid — delete freely. */
   #phase-label {
-    position: fixed;
-    left: 20px;
-    bottom: 16px;
+    position: fixed; left: 20px; bottom: 16px;
     color: rgba(255, 255, 255, 0.55);
-    font-size: 12px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    pointer-events: none;
-    user-select: none;
-    transition: opacity 0.6s ease;
-    z-index: 10;
+    font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+    pointer-events: none; user-select: none;
+    transition: opacity 0.6s ease; z-index: 10;
   }
 
-  /* ------------------------------------------------------------------ */
-  /* RPG-STYLE DIALOGUE BOX (Step 3, section 15)                        */
-  /* ------------------------------------------------------------------ */
+  /* ---------------------------------------------------------------- */
+  /* RPG-STYLE DIALOGUE BOX (Roman guides)                             */
+  /* ---------------------------------------------------------------- */
   #dialogue-box {
-    position: fixed;
-    left: 50%;
-    bottom: 32px;
-    transform: translateX(-50%);
+    position: fixed; left: 50%; bottom: 32px; transform: translateX(-50%);
     width: min(680px, calc(100vw - 32px));
-    z-index: 20;
-    transition: opacity 0.25s ease, transform 0.25s ease;
+    z-index: 20; transition: opacity 0.25s ease, transform 0.25s ease;
   }
-
   #dialogue-box.dialogue-hidden {
-    opacity: 0;
-    pointer-events: none;
-    transform: translateX(-50%) translateY(14px);
+    opacity: 0; pointer-events: none; transform: translateX(-50%) translateY(14px);
   }
-
   .dialogue-panel {
     position: relative;
     background: linear-gradient(180deg, rgba(30, 21, 13, 0.95), rgba(12, 8, 5, 0.97));
-    border: 2px solid #c9a227;
-    border-radius: 10px;
+    border: 2px solid #c9a227; border-radius: 10px;
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55), inset 0 0 24px rgba(201, 162, 39, 0.08);
-    padding: 26px 24px 18px;
-    color: #f1e6c8;
+    padding: 26px 24px 18px; color: #f1e6c8;
     font-family: Georgia, 'Times New Roman', serif;
   }
-
   .dialogue-name {
-    position: absolute;
-    top: -18px;
-    left: 20px;
-    padding: 4px 16px;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: bold;
-    letter-spacing: 0.04em;
-    color: #1a1108;
-    background: #c9a227; /* overridden inline per-guide, to match their tunic color */
+    position: absolute; top: -18px; left: 20px;
+    padding: 4px 16px; border-radius: 6px;
+    font-size: 14px; font-weight: bold; letter-spacing: 0.04em;
+    color: #1a1108; background: #c9a227;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
   }
-
-  .dialogue-text {
-    font-size: 17px;
-    line-height: 1.5;
-    margin-top: 6px;
-  }
-
+  .dialogue-text { font-size: 17px; line-height: 1.5; margin-top: 6px; }
   .dialogue-hint {
-    margin-top: 14px;
-    font-size: 11px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: rgba(241, 230, 200, 0.55);
-    font-family: 'Segoe UI', system-ui, sans-serif;
+    margin-top: 14px; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+    color: rgba(241, 230, 200, 0.55); font-family: 'Segoe UI', system-ui, sans-serif;
   }
-
   #dialogue-close {
-    position: absolute;
-    top: 10px;
-    right: 12px;
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    border: 1px solid rgba(241, 230, 200, 0.4);
-    background: rgba(0, 0, 0, 0.35);
-    color: #f1e6c8;
-    font-size: 15px;
-    line-height: 1;
-    cursor: pointer;
+    position: absolute; top: 10px; right: 12px;
+    width: 26px; height: 26px; border-radius: 50%;
+    border: 1px solid rgba(241, 230, 200, 0.4); background: rgba(0, 0, 0, 0.35);
+    color: #f1e6c8; font-size: 15px; line-height: 1; cursor: pointer;
+  }
+  #dialogue-close:hover { background: rgba(201, 162, 39, 0.35); }
+
+  /* ---------------------------------------------------------------- */
+  /* CONTACT POPUP (modern, clean, responsive — deliberately NOT the   */
+  /* ancient-RPG style above, to read as "breaking through" to real    */
+  /* contact info)                                                     */
+  /* ---------------------------------------------------------------- */
+  #contact-popup {
+    position: fixed; inset: 0; z-index: 30;
+    display: flex; align-items: center; justify-content: center;
+    transition: opacity 0.2s ease;
+  }
+  #contact-popup.contact-hidden { opacity: 0; pointer-events: none; }
+  .contact-backdrop {
+    position: absolute; inset: 0;
+    background: rgba(8, 10, 14, 0.6);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  }
+  .contact-card {
+    position: relative;
+    width: min(420px, calc(100vw - 40px));
+    background: linear-gradient(160deg, rgba(28, 32, 40, 0.96), rgba(16, 18, 24, 0.98));
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 18px; padding: 32px 28px 26px;
+    color: #eef1f6; font-family: 'Segoe UI', system-ui, sans-serif;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+    transform: translateY(0); transition: transform 0.2s ease;
+  }
+  #contact-popup.contact-hidden .contact-card { transform: translateY(10px) scale(0.98); }
+  .contact-title { margin: 0 0 4px; font-size: 22px; font-weight: 700; }
+  .contact-subtitle { margin: 0 0 20px; font-size: 13px; color: rgba(238, 241, 246, 0.6); }
+  .contact-links { display: flex; flex-direction: column; gap: 10px; }
+  .contact-link {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 14px; border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.06);
+    text-decoration: none; color: inherit;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+  }
+  .contact-link:hover {
+    background: rgba(34, 229, 255, 0.1); border-color: rgba(34, 229, 255, 0.35);
+    transform: translateX(2px);
+  }
+  .contact-icon-glyph { font-size: 22px; line-height: 1; }
+  .contact-link-label { display: block; font-size: 13px; font-weight: 600; }
+  .contact-link-value { display: block; font-size: 12px; color: rgba(238, 241, 246, 0.55); }
+  .contact-close {
+    position: absolute; top: 14px; right: 14px;
+    width: 30px; height: 30px; border-radius: 50%; border: none;
+    background: rgba(255, 255, 255, 0.08); color: #eef1f6;
+    font-size: 16px; cursor: pointer;
+  }
+  .contact-close:hover { background: rgba(255, 255, 255, 0.16); }
+  @media (max-width: 420px) {
+    .contact-card { padding: 26px 20px 20px; }
+    .contact-title { font-size: 19px; }
   }
 
-  #dialogue-close:hover {
-    background: rgba(201, 162, 39, 0.35);
+  /* ---------------------------------------------------------------- */
+  /* TOAST (balcony door click notice)                                 */
+  /* ---------------------------------------------------------------- */
+  #toast {
+    position: fixed; top: 24px; left: 50%;
+    transform: translateX(-50%) translateY(-12px);
+    z-index: 40;
+    background: rgba(20, 16, 10, 0.92);
+    border: 1px solid rgba(201, 162, 39, 0.5);
+    color: #f1e6c8; padding: 12px 20px; border-radius: 10px;
+    font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    opacity: 0; transition: opacity 0.25s ease, transform 0.25s ease;
+    pointer-events: none;
   }
+  #toast.toast-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
 </style>
 </head>
 <body>
@@ -124,7 +138,6 @@
 <canvas id="app-canvas"></canvas>
 <div id="phase-label">Phase: Intro — Hourglass</div>
 
-<!-- RPG dialogue overlay — populated/shown by openDialogue() in section 15. -->
 <div id="dialogue-box" class="dialogue-hidden">
   <div class="dialogue-panel">
     <button id="dialogue-close" aria-label="Close dialogue">&times;</button>
@@ -134,15 +147,41 @@
   </div>
 </div>
 
-<!--
-  ======================================================================
-  IMPORT MAP
-  ======================================================================
-  Loading Three.js as an ES module straight from a CDN (jsDelivr) so we
-  don't need a bundler. "three" resolves to the core library; anything
-  under "three/addons/" resolves to the examples/jsm folder, which is
-  where OrbitControls and GLTFLoader live.
--->
+<!-- PLACEHOLDER CONTACT LINKS — replace mailto:/github/linkedin below with your real ones. -->
+<div id="contact-popup" class="contact-hidden">
+  <div class="contact-backdrop" data-close></div>
+  <div class="contact-card">
+    <button id="contact-close" class="contact-close" aria-label="Close">&times;</button>
+    <h2 class="contact-title">Let's Connect</h2>
+    <p class="contact-subtitle">Reach out through any of these:</p>
+    <div class="contact-links">
+      <a class="contact-link" href="mailto:you@example.com">
+        <span class="contact-icon-glyph">&#9993;</span>
+        <span>
+          <span class="contact-link-label">Email</span>
+          <span class="contact-link-value">you@example.com</span>
+        </span>
+      </a>
+      <a class="contact-link" href="https://github.com/yourusername" target="_blank" rel="noopener">
+        <span class="contact-icon-glyph">&#128025;</span>
+        <span>
+          <span class="contact-link-label">GitHub</span>
+          <span class="contact-link-value">github.com/yourusername</span>
+        </span>
+      </a>
+      <a class="contact-link" href="https://linkedin.com/in/yourusername" target="_blank" rel="noopener">
+        <span class="contact-icon-glyph">&#128188;</span>
+        <span>
+          <span class="contact-link-label">LinkedIn</span>
+          <span class="contact-link-value">linkedin.com/in/yourusername</span>
+        </span>
+      </a>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
 <script type="importmap">
 {
   "imports": {
@@ -156,8 +195,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 // import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-// ^ Uncomment when you're ready to swap in real hourglass/archway/guide
-// models. See "SWAPPING IN A REAL GLTF MODEL" near the bottom of this file.
 
 /* ====================================================================
    1. RENDERER / SCENE / CAMERA
@@ -170,50 +207,32 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap; // soft, filmic shadow edges
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.ACESFilmicToneMapping; // gives that "graded" AAA look
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.1;
 
 const scene = new THREE.Scene();
-
-// Start in a near-black studio void. This color is animated toward a
-// warm golden-hour desert sky during the DESERT REVEAL phase (see
-// updateLighting further down), then dimmed again once we step inside
-// the colonnade (see updateHallwayLighting).
 scene.background = new THREE.Color(0x05050a);
 scene.fog = new THREE.FogExp2(0x05050a, 0.035);
 
-// Near plane starts intentionally TINY (0.001) because the intro camera
-// dive pushes right up against the sand mound. Once that close-up shot is
-// over we relax it (see the 'traveling' transition in the render loop).
 const camera = new THREE.PerspectiveCamera(
-  45,
-  window.innerWidth / window.innerHeight,
-  0.001,
-  1000 // covers the full dune field, the archway, and the colonnade beyond it
+  45, window.innerWidth / window.innerHeight, 0.001, 1000
 );
 
 /* ====================================================================
-   2. LIGHTING — "studio" state (dark room, hard key light)
+   2. LIGHTING — "studio" state
    ==================================================================== */
 
-// Ambient light: just enough to keep shadows from going pure black.
 const ambientLight = new THREE.AmbientLight(0x404060, 0.6);
 scene.add(ambientLight);
 
-// A hemisphere light gives a believable sky/ground color split once we
-// reach the desert. It starts fully desaturated/dim in the studio phase
-// and gets "switched on" during the reveal, then dimmed again indoors.
 const hemiLight = new THREE.HemisphereLight(0x111122, 0x000000, 0.15);
 scene.add(hemiLight);
 
-// The hard studio key light — a tight spotlight that only needs to rake
-// across the small hourglass. It fades out completely during the reveal
-// and is replaced by `sunLight` (section 6) for the desert.
 const keyLight = new THREE.SpotLight(0xffffff, 6.0);
 keyLight.position.set(4, 8, 5);
-keyLight.angle = Math.PI / 10;   // narrow cone = "sharp" spotlight look
+keyLight.angle = Math.PI / 10;
 keyLight.penumbra = 0.25;
 keyLight.decay = 1.5;
 keyLight.distance = 60;
@@ -226,20 +245,13 @@ scene.add(keyLight);
 scene.add(keyLight.target);
 keyLight.target.position.set(0, 0, 0);
 
-// A cool rim light from behind, purely for silhouette definition on the
-// glass edges while we're still in the dark studio.
 const rimLight = new THREE.PointLight(0x6688ff, 1.2, 20);
 rimLight.position.set(-3, 2, -4);
 scene.add(rimLight);
 
 /* ====================================================================
-   3. THE HOURGLASS (placeholder geometry)
-   ====================================================================
-   Built from two cones meeting tip-to-tip at the origin, plus metallic
-   disc caps and thin corner posts to suggest a frame. Everything lives
-   inside `hourglassGroup` so the whole assembly can be faded / hidden
-   as a single unit later (see the GLTF swap notes at the bottom).
-*/
+   3. THE HOURGLASS
+   ==================================================================== */
 
 const hourglassGroup = new THREE.Group();
 scene.add(hourglassGroup);
@@ -247,25 +259,16 @@ scene.add(hourglassGroup);
 const BULB_RADIUS = 1.6;
 const BULB_HEIGHT = 3.2;
 
-// Semi-transparent "glass" — physically based transmission gives a much
-// more convincing glass look than plain alpha blending.
 const glassMaterial = new THREE.MeshPhysicalMaterial({
-  color: 0xbfd9ff,
-  metalness: 0,
-  roughness: 0.05,
-  transmission: 1.0,
-  thickness: 1.2,
-  ior: 1.45,
-  transparent: true,
-  opacity: 1.0,            // driven down to 0 during the DESERT REVEAL fade
-  clearcoat: 1.0,
-  clearcoatRoughness: 0.1,
-  side: THREE.DoubleSide,
+  color: 0xbfd9ff, metalness: 0, roughness: 0.05,
+  transmission: 1.0, thickness: 1.2, ior: 1.45,
+  transparent: true, opacity: 1.0,
+  clearcoat: 1.0, clearcoatRoughness: 0.1, side: THREE.DoubleSide,
 });
 
 const topBulbGeo = new THREE.ConeGeometry(BULB_RADIUS, BULB_HEIGHT, 24, 1, true);
 const topBulb = new THREE.Mesh(topBulbGeo, glassMaterial);
-topBulb.rotation.x = Math.PI; // flip so the apex faces the origin
+topBulb.rotation.x = Math.PI;
 topBulb.position.y = BULB_HEIGHT / 2;
 topBulb.castShadow = true;
 topBulb.receiveShadow = true;
@@ -279,11 +282,7 @@ bottomBulb.receiveShadow = true;
 hourglassGroup.add(bottomBulb);
 
 const capMaterial = new THREE.MeshStandardMaterial({
-  color: 0x8a7350,
-  metalness: 1.0,
-  roughness: 0.45,
-  transparent: true,
-  opacity: 1.0,
+  color: 0x8a7350, metalness: 1.0, roughness: 0.45, transparent: true, opacity: 1.0,
 });
 const capGeo = new THREE.CylinderGeometry(BULB_RADIUS * 1.05, BULB_RADIUS * 1.05, 0.25, 24);
 
@@ -301,27 +300,17 @@ hourglassGroup.add(bottomCap);
 
 const postMaterial = capMaterial;
 const postGeo = new THREE.CylinderGeometry(0.06, 0.06, BULB_HEIGHT * 2 + 0.5, 8);
-const postPositions = [
-  [BULB_RADIUS * 0.95, 0, 0],
-  [-BULB_RADIUS * 0.95, 0, 0],
-  [0, 0, BULB_RADIUS * 0.95],
-  [0, 0, -BULB_RADIUS * 0.95],
-];
-postPositions.forEach(([x, y, z]) => {
-  const post = new THREE.Mesh(postGeo, postMaterial);
-  post.position.set(x, y, z);
-  post.castShadow = true;
-  hourglassGroup.add(post);
-});
+[[BULB_RADIUS * 0.95, 0, 0], [-BULB_RADIUS * 0.95, 0, 0], [0, 0, BULB_RADIUS * 0.95], [0, 0, -BULB_RADIUS * 0.95]]
+  .forEach(([x, y, z]) => {
+    const post = new THREE.Mesh(postGeo, postMaterial);
+    post.position.set(x, y, z);
+    post.castShadow = true;
+    hourglassGroup.add(post);
+  });
 
-const SAND_COLOR = 0xe1b382; // same warm desert tone used for the dunes/stone later
+const SAND_COLOR = 0xe1b382;
 
-const sandMaterial = new THREE.MeshStandardMaterial({
-  color: SAND_COLOR,
-  roughness: 1.0,
-  metalness: 0.0,
-});
-
+const sandMaterial = new THREE.MeshStandardMaterial({ color: SAND_COLOR, roughness: 1.0, metalness: 0.0 });
 const sandMoundGeo = new THREE.ConeGeometry(BULB_RADIUS * 0.55, 1.1, 20);
 const sandMound = new THREE.Mesh(sandMoundGeo, sandMaterial);
 sandMound.position.y = -BULB_HEIGHT + 0.55;
@@ -331,38 +320,56 @@ hourglassGroup.add(sandMound);
 
 /* ====================================================================
    4. LEVEL LAYOUT CONSTANTS
-   ====================================================================
-   Every downstream system — the dune-flattening noise, the archway, the
-   colonnade, the guides, and the travel camera — needs to agree on where
-   things sit in the world. Declaring them all together, up front, means
-   changing one number here (e.g. how long the hallway is) automatically
-   keeps the terrain, the architecture, and the camera paths in sync.
-*/
+   ==================================================================== */
 
-const ARCH_Z = -90;        // how far ahead (world -Z) of the hourglass the archway stands
-const ARCH_GAP = 9;        // half the distance between the two arch pillars == the arch's radius
+const ARCH_Z = -90;
+const ARCH_GAP = 9;
 const PILLAR_WIDTH = 3.4;
 const PILLAR_DEPTH = 7;
 const PILLAR_HEIGHT = 12.5;
 const ARCH_TUBE = 1.4;
 
-const HALLWAY_START_Z = -98;         // just past the archway's inner face
+const HALLWAY_START_Z = -98;
 const HALLWAY_LENGTH = 190;
 const HALLWAY_END_Z = HALLWAY_START_Z - HALLWAY_LENGTH; // -288
-const COLUMN_OFFSET = 8;             // colonnade columns sit this far either side of the centerline
+const COLUMN_OFFSET = 8;
 const COLUMN_SPACING = 16;
-const N_COLUMNS = Math.floor(HALLWAY_LENGTH / COLUMN_SPACING); // columns per side
+const N_COLUMNS = Math.floor(HALLWAY_LENGTH / COLUMN_SPACING);
+const CORRIDOR_HALF_WIDTH = COLUMN_OFFSET - 2.5; // how far you can stray from center in the colonnade
+
+// The Great Skill Hall picks up exactly where the colonnade ends.
+const HALL_HALF_WIDTH = 34;
+const HALL_DEPTH = 80;
+const HALL_END_Z = HALLWAY_END_Z - HALL_DEPTH; // -368
+const HALL_CEILING_Y_OFFSET = 28;
+const WALL_MARGIN = 1.5; // keeps the camera from ever touching a wall
+
+const BALCONY_HEIGHT = 6.5;
+const BALCONY_RAIL_HEIGHT = 1.1;
+const BACK_STRIP_DEPTH = 9;
+
+const STAIR_WIDTH = 6;
+const STAIR_X = HALL_HALF_WIDTH - 7;      // hugs the right-hand wall
+const STAIR_Z_BOTTOM = HALLWAY_END_Z - 8; // ground level, just inside the hall
+const STAIR_RUN = 22;
+const STAIR_Z_TOP = STAIR_Z_BOTTOM - STAIR_RUN;
+const N_STAIR_STEPS = 12;
+
+// Balcony extents — computed once here so the visual slabs (section 10)
+// and the movement height-field (getFloorHeightAt, also section 10)
+// can never drift out of sync with each other.
+const RIGHT_STRIP_X_MIN = STAIR_X - STAIR_WIDTH / 2 - 1;
+const RIGHT_STRIP_X_MAX = HALL_HALF_WIDTH - 1;
+const RIGHT_STRIP_Z_MIN = HALL_END_Z + 1;
+const RIGHT_STRIP_Z_MAX = STAIR_Z_TOP + 1;
+const BACK_STRIP_X_MIN = -HALL_HALF_WIDTH + 1;
+const BACK_STRIP_X_MAX = HALL_HALF_WIDTH - 1;
+const BACK_STRIP_Z_MIN = HALL_END_Z + 1;
+const BACK_STRIP_Z_MAX = HALL_END_Z + 1 + BACK_STRIP_DEPTH;
 
 /* ====================================================================
    5. DESERT TERRAIN — wavy dunes via noise-displaced geometry
-   ====================================================================
-   A cheap, dependency-free 2D value-noise function (hash + smoothstep
-   bilinear interpolation) driving a fractal-Brownian-motion (fbm) sum of
-   a few octaves — done on the CPU at load time (rather than purely in a
-   vertex shader) specifically so `getTerrainHeight()` can also be READ
-   BACK by JS, to place the archway's feet and to keep the camera glued
-   to the surface during the travel flythrough.
-*/
+   ==================================================================== */
 
 function hash2D(x, z) {
   const s = Math.sin(x * 127.1 + z * 311.7) * 43758.5453123;
@@ -372,14 +379,10 @@ function hash2D(x, z) {
 function valueNoise2D(x, z) {
   const xi = Math.floor(x), zi = Math.floor(z);
   const xf = x - xi, zf = z - zi;
-  const u = xf * xf * (3 - 2 * xf); // smoothstep, not linear — kills grid-line artifacts
+  const u = xf * xf * (3 - 2 * xf);
   const v = zf * zf * (3 - 2 * zf);
-
-  const a = hash2D(xi, zi);
-  const b = hash2D(xi + 1, zi);
-  const c = hash2D(xi, zi + 1);
-  const d = hash2D(xi + 1, zi + 1);
-
+  const a = hash2D(xi, zi), b = hash2D(xi + 1, zi);
+  const c = hash2D(xi, zi + 1), d = hash2D(xi + 1, zi + 1);
   return THREE.MathUtils.lerp(THREE.MathUtils.lerp(a, b, u), THREE.MathUtils.lerp(c, d, u), v);
 }
 
@@ -394,62 +397,45 @@ function fbm2D(x, z, octaves = 4, lacunarity = 2.0, gain = 0.5) {
   return sum / max;
 }
 
-// Converts noise into a signed world-space height offset, then smoothly
-// flattens a "capsule" running the length of the ENTIRE walked path — from
-// the hourglass landing spot, through the archway, to the far end of the
-// colonnade — so the flat stone hallway floor and archway foundation never
-// fight the bumpy dune mesh underneath them. Distance is measured from the
-// nearest point on that path (clamped to its Z-range), which gives a
-// rounded, seamless flatten zone with no hard edges anywhere.
 function getDuneOffset(x, z) {
-  const large = (fbm2D(x * 0.006, z * 0.006, 4) * 2 - 1) * 14;          // big dunes, +-14 units
-  const ripples = (fbm2D(x * 0.05 + 50, z * 0.05 + 50, 3) * 2 - 1) * 1.6; // fine ripples, +-1.6 units
+  const large = (fbm2D(x * 0.006, z * 0.006, 4) * 2 - 1) * 14;
+  const ripples = (fbm2D(x * 0.05 + 50, z * 0.05 + 50, 3) * 2 - 1) * 1.6;
   const raw = large + ripples;
 
-  const pathZNear = 10;                 // a little past the hourglass landing spot
-  const pathZFar = HALLWAY_END_Z - 20;  // a little past the far end of the colonnade
+  const pathZNear = 10;
+  const pathZFar = HALLWAY_END_Z - 20;
   const clampedZ = THREE.MathUtils.clamp(z, pathZFar, pathZNear);
   const distFromPath = Math.hypot(x, z - clampedZ);
 
-  const flattenRadius = 16; // wider than the hallway (COLUMN_OFFSET=8) for a clean margin
+  const flattenRadius = 16;
   const t = THREE.MathUtils.clamp(distFromPath / flattenRadius, 0, 1);
-  const flattenFactor = t * t * (3 - 2 * t); // smoothstep
+  const flattenFactor = t * t * (3 - 2 * t);
 
   return raw * flattenFactor;
 }
 
-const TERRAIN_BASE_Y = -BULB_HEIGHT + 0.6; // matches Step 1's flat ground height exactly
+const TERRAIN_BASE_Y = -BULB_HEIGHT + 0.6;
 
-// Single source of truth for "how tall is the ground at this world x/z" —
-// used to build the terrain mesh AND to place the archway/hallway AND to
-// keep the travel camera glued to the dune surface outside the colonnade.
 function getTerrainHeight(x, z) {
   return TERRAIN_BASE_Y + getDuneOffset(x, z);
 }
 
-const TERRAIN_SIZE = 700;      // total width/depth of the desert, in world units
-const TERRAIN_SEGMENTS = 160;  // vertex grid resolution per side
+const TERRAIN_SIZE = 700;
+const TERRAIN_SEGMENTS = 160;
 
 const terrainGeo = new THREE.PlaneGeometry(TERRAIN_SIZE, TERRAIN_SIZE, TERRAIN_SEGMENTS, TERRAIN_SEGMENTS);
-terrainGeo.rotateX(-Math.PI / 2); // bake the "lay flat" rotation into the geometry itself
+terrainGeo.rotateX(-Math.PI / 2);
 
 const posAttr = terrainGeo.attributes.position;
 for (let i = 0; i < posAttr.count; i++) {
-  const x = posAttr.getX(i);
-  const z = posAttr.getZ(i);
-  posAttr.setY(i, getDuneOffset(x, z)); // TERRAIN_BASE_Y applied once via the mesh's own position, below
+  posAttr.setY(i, getDuneOffset(posAttr.getX(i), posAttr.getZ(i)));
 }
 posAttr.needsUpdate = true;
-terrainGeo.computeVertexNormals(); // essential — otherwise the dunes keep flat normals and won't shade
+terrainGeo.computeVertexNormals();
 
 const duneMaterial = new THREE.MeshStandardMaterial({
-  color: SAND_COLOR,
-  roughness: 0.95,
-  metalness: 0.0,
-  transparent: true,
-  opacity: 0.0, // faded in during the desert reveal
+  color: SAND_COLOR, roughness: 0.95, metalness: 0.0, transparent: true, opacity: 0.0,
 });
-
 const duneTerrain = new THREE.Mesh(terrainGeo, duneMaterial);
 duneTerrain.position.y = TERRAIN_BASE_Y;
 duneTerrain.receiveShadow = true;
@@ -457,13 +443,7 @@ scene.add(duneTerrain);
 
 /* ====================================================================
    6. GOLDEN-HOUR SUN
-   ====================================================================
-   A proper DirectionalLight (parallel rays) rather than the studio
-   SpotLight, since a spotlight's cone can't evenly light a landscape
-   hundreds of units wide. Off through the studio phase, ramps up with
-   the desert reveal, then dims (but doesn't fully die) once we step
-   into the colonnade — a little still rakes in between the columns.
-*/
+   ==================================================================== */
 
 const sunLight = new THREE.DirectionalLight(0xffc27a, 0);
 sunLight.position.set(140, 45, 90);
@@ -482,70 +462,38 @@ scene.add(sunLight.target);
 
 /* ====================================================================
    7. THE ROMAN ARCHWAY
-   ====================================================================
-   A procedural triumphal-arch silhouette (loosely after the Arch of
-   Septimius Severus): BoxGeometry pillars + a half TorusGeometry
-   (arc = PI) spanning between their tops, scaled along Z so its tube
-   reads as a real walk-through passage rather than a flat ring.
-*/
+   ==================================================================== */
 
 function createRomanArchway() {
   const group = new THREE.Group();
+  const marble = new THREE.MeshStandardMaterial({ color: 0xe8e0cf, roughness: 0.85, metalness: 0.02, transparent: true, opacity: 0 });
+  const marbleDark = new THREE.MeshStandardMaterial({ color: 0xcfc4a8, roughness: 0.9, metalness: 0.02, transparent: true, opacity: 0 });
 
-  const marble = new THREE.MeshStandardMaterial({
-    color: 0xe8e0cf, roughness: 0.85, metalness: 0.02, transparent: true, opacity: 0,
-  });
-  const marbleDark = new THREE.MeshStandardMaterial({
-    color: 0xcfc4a8, roughness: 0.9, metalness: 0.02, transparent: true, opacity: 0,
-  });
-
-  // Both pillars share ONE height sample (rather than each sampling its
-  // own x) so the arch's two feet — which assume equal pillar heights —
-  // actually meet the tops cleanly.
   const baseY = getTerrainHeight(0, ARCH_Z);
 
   [-1, 1].forEach((side) => {
     const x = side * ARCH_GAP;
-
-    const plinth = new THREE.Mesh(
-      new THREE.BoxGeometry(PILLAR_WIDTH + 1, 1.4, PILLAR_DEPTH + 1),
-      marbleDark
-    );
+    const plinth = new THREE.Mesh(new THREE.BoxGeometry(PILLAR_WIDTH + 1, 1.4, PILLAR_DEPTH + 1), marbleDark);
     plinth.position.set(x, baseY + 0.7, ARCH_Z);
     group.add(plinth);
 
     const shaftHeight = PILLAR_HEIGHT - 1.4;
-    const shaft = new THREE.Mesh(
-      new THREE.BoxGeometry(PILLAR_WIDTH, shaftHeight, PILLAR_DEPTH),
-      marble
-    );
+    const shaft = new THREE.Mesh(new THREE.BoxGeometry(PILLAR_WIDTH, shaftHeight, PILLAR_DEPTH), marble);
     shaft.position.set(x, baseY + 1.4 + shaftHeight / 2, ARCH_Z);
     group.add(shaft);
   });
 
-  // arc = Math.PI sweeps exactly the TOP half of the ring — an upward
-  // arch shape whose two ends land at (+radius,0) and (-radius,0), right
-  // where the pillar tops are. No extra rotation needed.
-  const archCurve = new THREE.Mesh(
-    new THREE.TorusGeometry(ARCH_GAP, ARCH_TUBE, 16, 48, Math.PI),
-    marble
-  );
+  const archCurve = new THREE.Mesh(new THREE.TorusGeometry(ARCH_GAP, ARCH_TUBE, 16, 48, Math.PI), marble);
   archCurve.position.set(0, baseY + PILLAR_HEIGHT, ARCH_Z);
-  archCurve.scale.z = PILLAR_DEPTH / (ARCH_TUBE * 2); // stretch the tube into a real barrel vault
+  archCurve.scale.z = PILLAR_DEPTH / (ARCH_TUBE * 2);
   group.add(archCurve);
 
   const atticY = baseY + PILLAR_HEIGHT + ARCH_GAP + ARCH_TUBE + 1.1;
-  const attic = new THREE.Mesh(
-    new THREE.BoxGeometry(ARCH_GAP * 2 + PILLAR_WIDTH * 1.6, 2.2, PILLAR_DEPTH + 1),
-    marbleDark
-  );
+  const attic = new THREE.Mesh(new THREE.BoxGeometry(ARCH_GAP * 2 + PILLAR_WIDTH * 1.6, 2.2, PILLAR_DEPTH + 1), marbleDark);
   attic.position.set(0, atticY, ARCH_Z);
   group.add(attic);
 
-  group.traverse((child) => {
-    if (child.isMesh) { child.castShadow = true; child.receiveShadow = true; }
-  });
-
+  group.traverse((c) => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
   return { group, materials: [marble, marbleDark] };
 }
 
@@ -554,15 +502,9 @@ scene.add(archwayGroup);
 
 /* ====================================================================
    8. THE ROMAN COLONNADE HALLWAY
-   ====================================================================
-   Two rows of towering columns (CylinderGeometry shaft + BoxGeometry
-   base/capital), a flat stone floor, and a high ceiling. Warm SpotLights
-   hang between the columns, pooling dramatic light on the floor — only a
-   handful cast real shadows, since shadow maps are the single most
-   expensive thing a light can do and we already have the sun doing one.
-*/
+   ==================================================================== */
 
-const HALLWAY_FLOOR_Y = getTerrainHeight(0, ARCH_Z); // flat by construction (see the path-flatten capsule above)
+const HALLWAY_FLOOR_Y = getTerrainHeight(0, ARCH_Z);
 const COLUMN_BASE_HEIGHT = 1;
 const COLUMN_SHAFT_HEIGHT = 11;
 const COLUMN_CAP_HEIGHT = 1;
@@ -574,35 +516,24 @@ scene.add(hallwayGroup);
 
 const stoneMaterial = new THREE.MeshStandardMaterial({ color: 0xcdbf9d, roughness: 0.85, metalness: 0.03 });
 const floorMaterial = new THREE.MeshStandardMaterial({ color: 0xb7a888, roughness: 0.92, metalness: 0.02 });
-const ceilingMaterial = new THREE.MeshStandardMaterial({
-  color: 0x8f8570, roughness: 0.95, metalness: 0.0, side: THREE.DoubleSide,
-});
+const ceilingMaterial = new THREE.MeshStandardMaterial({ color: 0x8f8570, roughness: 0.95, metalness: 0.0, side: THREE.DoubleSide });
 
 function createColumn(x, z) {
   const group = new THREE.Group();
-
   const base = new THREE.Mesh(new THREE.BoxGeometry(2.4, COLUMN_BASE_HEIGHT, 2.4), stoneMaterial);
   base.position.y = COLUMN_BASE_HEIGHT / 2;
   group.add(base);
-
   const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 1.0, COLUMN_SHAFT_HEIGHT, 20), stoneMaterial);
   shaft.position.y = COLUMN_BASE_HEIGHT + COLUMN_SHAFT_HEIGHT / 2;
   group.add(shaft);
-
   const cap = new THREE.Mesh(new THREE.BoxGeometry(2.2, COLUMN_CAP_HEIGHT, 2.2), stoneMaterial);
   cap.position.y = COLUMN_BASE_HEIGHT + COLUMN_SHAFT_HEIGHT + COLUMN_CAP_HEIGHT / 2;
   group.add(cap);
-
-  group.traverse((child) => {
-    if (child.isMesh) { child.castShadow = true; child.receiveShadow = true; }
-  });
-
+  group.traverse((c) => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
   group.position.set(x, HALLWAY_FLOOR_Y, z);
   return group;
 }
 
-// One Z position per column pair, spaced evenly down the hallway. Stored
-// for reuse below so the Roman guides can stand next to specific columns.
 const columnZs = [];
 for (let i = 0; i < N_COLUMNS; i++) {
   const z = HALLWAY_START_Z - (i + 0.5) * COLUMN_SPACING;
@@ -613,40 +544,28 @@ for (let i = 0; i < N_COLUMNS; i++) {
 
 const hallwayCenterZ = (HALLWAY_START_Z + HALLWAY_END_Z) / 2;
 
-const hallwayFloor = new THREE.Mesh(
-  new THREE.PlaneGeometry(COLUMN_OFFSET * 2 + 8, HALLWAY_LENGTH + 8),
-  floorMaterial
-);
+const hallwayFloor = new THREE.Mesh(new THREE.PlaneGeometry(COLUMN_OFFSET * 2 + 8, HALLWAY_LENGTH + 8), floorMaterial);
 hallwayFloor.rotation.x = -Math.PI / 2;
 hallwayFloor.position.set(0, HALLWAY_FLOOR_Y, hallwayCenterZ);
 hallwayFloor.receiveShadow = true;
 hallwayGroup.add(hallwayFloor);
 
-const hallwayCeiling = new THREE.Mesh(
-  new THREE.PlaneGeometry(COLUMN_OFFSET * 2 + 8, HALLWAY_LENGTH + 8),
-  ceilingMaterial
-);
+const hallwayCeiling = new THREE.Mesh(new THREE.PlaneGeometry(COLUMN_OFFSET * 2 + 8, HALLWAY_LENGTH + 8), ceilingMaterial);
 hallwayCeiling.rotation.x = Math.PI / 2;
 hallwayCeiling.position.set(0, CEILING_Y, hallwayCenterZ);
 hallwayGroup.add(hallwayCeiling);
 
-// One lamp per GAP between consecutive column pairs — i.e. genuinely
-// "between the columns" rather than colocated with one.
 const lampZs = [];
-for (let i = 0; i < columnZs.length - 1; i++) {
-  lampZs.push((columnZs[i] + columnZs[i + 1]) / 2);
-}
+for (let i = 0; i < columnZs.length - 1; i++) lampZs.push((columnZs[i] + columnZs[i + 1]) / 2);
 
-const MAX_SHADOW_SPOTLIGHTS = 4; // cap how many colonnade lights get a real (expensive) shadow map
+const MAX_SHADOW_SPOTLIGHTS = 4;
 let shadowSpotlightCount = 0;
-
 lampZs.forEach((z, i) => {
   const spot = new THREE.SpotLight(0xffaa55, 4.5, 22, Math.PI / 5, 0.55, 1.5);
   spot.position.set(0, CEILING_Y - 1.5, z);
   spot.target.position.set(0, HALLWAY_FLOOR_Y, z);
   hallwayGroup.add(spot);
   hallwayGroup.add(spot.target);
-
   if (shadowSpotlightCount < MAX_SHADOW_SPOTLIGHTS && i % Math.ceil(lampZs.length / MAX_SHADOW_SPOTLIGHTS) === 0) {
     spot.castShadow = true;
     spot.shadow.mapSize.set(1024, 1024);
@@ -657,61 +576,32 @@ lampZs.forEach((z, i) => {
 
 /* ====================================================================
    9. THE INTERACTIVE ROMAN GUIDES
-   ====================================================================
-   Each guide is a Group (cylinder body + sphere head + a thin torus
-   sash) tagged with a name and a pool of dialogue lines in userData —
-   that's what the raycaster in section 15 reads when you click one.
-*/
+   ==================================================================== */
 
 const GUIDES = [
-  {
-    name: 'Marcus the Historian',
-    color: 0x8c1c26, // crimson tunic
-    side: -1,
-    columnIndex: 2,
-    lines: [
+  { name: 'Marcus the Historian', color: 0x8c1c26, side: -1, columnIndex: 2, lines: [
       "This colonnade echoes the Roman Forum — marble columns once lined the sacred way to the temples.",
       "The arch you passed under recalls Septimius Severus's own, raised in 203 AD to mark his victories in Parthia.",
       "Romans paved their roads in layers of fitted stone so precisely, some are still walkable two thousand years later.",
-    ],
-  },
-  {
-    name: 'Gaius the Comedian',
-    color: 0xc9a227, // gold tunic
-    side: 1,
-    columnIndex: 4,
-    lines: [
+  ]},
+  { name: 'Gaius the Comedian', color: 0xc9a227, side: 1, columnIndex: 4, lines: [
       "Why did the Roman chicken cross the road? To get to the other side of the empire!",
       "I asked a Roman for directions once. He just said 'all roads lead to Rome.' Not helpful — I was already in Rome.",
       "A centurion walks into a bar, holds up two fingers, and says: 'Five beers, please.'",
-    ],
-  },
-  {
-    name: 'Livia the Merchant',
-    color: 0x8c1c26,
-    side: -1,
-    columnIndex: 7,
-    lines: [
+  ]},
+  { name: 'Livia the Merchant', color: 0x8c1c26, side: -1, columnIndex: 7, lines: [
       "I've traded silk from the East and sand-glass from these very dunes — everything passes through this hall eventually.",
       "A caravan can cross the desert in a fortnight, if the winds are kind and the guides are honest.",
-    ],
-  },
-  {
-    name: 'Quintus the Guide',
-    color: 0xc9a227,
-    side: 1,
-    columnIndex: 9,
-    lines: [
-      "Keep walking, traveler — beyond this hall lies the atrium, where the builder's own work and deeds are on display.",
+  ]},
+  { name: 'Quintus the Guide', color: 0xc9a227, side: 1, columnIndex: 9, lines: [
+      "Keep walking, traveler — beyond this hall lies the Great Hall, where the builder's own work and deeds are on display.",
       "Not every hall leads somewhere. This one does.",
-    ],
-  },
+  ]},
 ];
 
 function createGuide(def) {
   const z = columnZs[def.columnIndex];
-  const x = def.side * (COLUMN_OFFSET - 2.2); // stand just inside the column line, clear of the walking path
-
+  const x = def.side * (COLUMN_OFFSET - 2.2);
   const group = new THREE.Group();
 
   const tunicMaterial = new THREE.MeshStandardMaterial({ color: def.color, roughness: 0.6, metalness: 0.05 });
@@ -721,22 +611,17 @@ function createGuide(def) {
   const body = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.68, 2.2, 16), tunicMaterial);
   body.position.y = 1.1;
   group.add(body);
-
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 16), skinMaterial);
   head.position.y = 2.5;
   group.add(head);
-
   const sash = new THREE.Mesh(new THREE.TorusGeometry(0.58, 0.06, 8, 16), sashMaterial);
   sash.rotation.x = Math.PI / 2;
   sash.position.y = 1.45;
   group.add(sash);
 
-  group.traverse((child) => {
-    if (child.isMesh) { child.castShadow = true; child.receiveShadow = true; }
-  });
-
+  group.traverse((c) => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
   group.position.set(x, HALLWAY_FLOOR_Y, z);
-  group.lookAt(0, HALLWAY_FLOOR_Y + 1.1, z); // face the walking path, not down the hall
+  group.lookAt(0, HALLWAY_FLOOR_Y + 1.1, z);
 
   group.name = def.name;
   group.userData.isGuide = true;
@@ -751,49 +636,263 @@ function createGuide(def) {
 const guideGroups = GUIDES.map(createGuide);
 
 /* ====================================================================
-   10. CAMERA CINEMATIC TRANSITION — the hourglass dive (Step 1, unchanged)
+   10. THE GREAT SKILL HALL
    ====================================================================
-   HOW THE INTERPOLATION WORKS
-   ----------------------------------------------------------------
-   - `camStart` / `camEnd` are two fixed Vector3 positions; `lookStart` /
-     `lookEnd` are the two points the camera aims at across the same span.
-   - Every frame we compute `t` (0→1, elapsed/duration), ease it with
-     `easeInOutCubic`, then feed both eased values into
-     `Vector3.lerpVectors(a, b, easedT)` for that frame's camera position
-     and look-at target.
-   - This runs inside the requestAnimationFrame loop via THREE.Clock, so
-     it always stays in lockstep with what's actually being rendered.
+   A wide basilica-like room at the far end of the colonnade: a ground
+   floor centered on a contact table, a raised balcony along the right
+   and back walls (reached by a grand staircase), skill-category panels
+   on the left wall, and a row of "Project Showcase" doors on the
+   balcony's back wall.
 */
 
-const SAND_APEX_Y = -BULB_HEIGHT + 1.1;
+// Single source of truth for "how high is the floor here" — mirrors
+// getTerrainHeight()'s role for the outdoor dunes. The staircase is
+// RENDERED as discrete steps below, but for movement purposes it's
+// treated as a smooth ramp — that's what lets the player's eye height
+// rise continuously while climbing instead of visibly popping per step.
+function getFloorHeightAt(x, z) {
+  const onStaircase = Math.abs(x - STAIR_X) < STAIR_WIDTH / 2 && z <= STAIR_Z_BOTTOM && z >= STAIR_Z_TOP;
+  if (onStaircase) {
+    const t = (STAIR_Z_BOTTOM - z) / (STAIR_Z_BOTTOM - STAIR_Z_TOP);
+    return HALLWAY_FLOOR_Y + t * BALCONY_HEIGHT;
+  }
+  const onRightStrip = x >= RIGHT_STRIP_X_MIN && x <= RIGHT_STRIP_X_MAX && z >= RIGHT_STRIP_Z_MIN && z <= RIGHT_STRIP_Z_MAX;
+  const onBackStrip = x >= BACK_STRIP_X_MIN && x <= BACK_STRIP_X_MAX && z >= BACK_STRIP_Z_MIN && z <= BACK_STRIP_Z_MAX;
+  if (onRightStrip || onBackStrip) return HALLWAY_FLOOR_Y + BALCONY_HEIGHT;
+  return HALLWAY_FLOOR_Y;
+}
 
+const HALL_CEILING_Y = HALLWAY_FLOOR_Y + HALL_CEILING_Y_OFFSET;
+const hallGroup = new THREE.Group();
+scene.add(hallGroup);
+
+const hallStoneMaterial = new THREE.MeshStandardMaterial({ color: 0xc7b998, roughness: 0.88, metalness: 0.03 });
+const hallFloorMaterial = new THREE.MeshStandardMaterial({ color: 0xab9c7c, roughness: 0.9, metalness: 0.02 });
+const hallCeilingMaterial = new THREE.MeshStandardMaterial({ color: 0x847a63, roughness: 0.95, side: THREE.DoubleSide });
+
+const hallCenterZ = (HALLWAY_END_Z + HALL_END_Z) / 2;
+
+const hallFloor = new THREE.Mesh(new THREE.PlaneGeometry(HALL_HALF_WIDTH * 2, HALL_DEPTH), hallFloorMaterial);
+hallFloor.rotation.x = -Math.PI / 2;
+hallFloor.position.set(0, HALLWAY_FLOOR_Y, hallCenterZ);
+hallFloor.receiveShadow = true;
+hallGroup.add(hallFloor);
+
+const hallCeiling = new THREE.Mesh(new THREE.PlaneGeometry(HALL_HALF_WIDTH * 2, HALL_DEPTH), hallCeilingMaterial);
+hallCeiling.rotation.x = Math.PI / 2;
+hallCeiling.position.set(0, HALL_CEILING_Y, hallCenterZ);
+hallGroup.add(hallCeiling);
+
+const WALL_THICKNESS = 1;
+const hallWallHeight = HALL_CEILING_Y - HALLWAY_FLOOR_Y;
+
+function createWall(width, depth, x, z) {
+  const wall = new THREE.Mesh(new THREE.BoxGeometry(width, hallWallHeight, depth), hallStoneMaterial);
+  wall.position.set(x, HALLWAY_FLOOR_Y + hallWallHeight / 2, z);
+  wall.castShadow = true;
+  wall.receiveShadow = true;
+  hallGroup.add(wall);
+  return wall;
+}
+
+createWall(WALL_THICKNESS, HALL_DEPTH, -HALL_HALF_WIDTH, hallCenterZ); // left wall — skill panels
+createWall(WALL_THICKNESS, HALL_DEPTH, HALL_HALF_WIDTH, hallCenterZ);  // right wall — behind the staircase
+createWall(HALL_HALF_WIDTH * 2, WALL_THICKNESS, 0, HALL_END_Z);       // back wall — balcony doors
+
+// Front wall, split around a doorway exactly as wide as the colonnade.
+const frontWallSegmentWidth = HALL_HALF_WIDTH - CORRIDOR_HALF_WIDTH;
+createWall(frontWallSegmentWidth, WALL_THICKNESS, -(HALL_HALF_WIDTH + CORRIDOR_HALF_WIDTH) / 2, HALLWAY_END_Z);
+createWall(frontWallSegmentWidth, WALL_THICKNESS, (HALL_HALF_WIDTH + CORRIDOR_HALF_WIDTH) / 2, HALLWAY_END_Z);
+
+// --- Accent pillars (left wall only — the right wall's visual anchor is
+// the staircase/balcony structure itself) ---------------------------
+function createHallPillar(x, z) {
+  const group = new THREE.Group();
+  const base = new THREE.Mesh(new THREE.BoxGeometry(3, 1.2, 3), hallStoneMaterial);
+  base.position.y = 0.6;
+  group.add(base);
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.3, 16, 20), hallStoneMaterial);
+  shaft.position.y = 0.6 + 8;
+  group.add(shaft);
+  const cap = new THREE.Mesh(new THREE.BoxGeometry(2.8, 1.2, 2.8), hallStoneMaterial);
+  cap.position.y = 0.6 + 16 + 0.6;
+  group.add(cap);
+  group.traverse((c) => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+  group.position.set(x, HALLWAY_FLOOR_Y, z);
+  hallGroup.add(group);
+  return group;
+}
+
+const hallPillarInset = 5;
+for (let i = 0; i < 3; i++) {
+  createHallPillar(-(HALL_HALF_WIDTH - hallPillarInset), HALLWAY_END_Z - 12 - i * 22);
+}
+
+// --- Grand staircase --------------------------------------------------
+const stairStepHeight = BALCONY_HEIGHT / N_STAIR_STEPS;
+const stairStepDepth = STAIR_RUN / N_STAIR_STEPS;
+const staircaseGroup = new THREE.Group();
+for (let i = 0; i < N_STAIR_STEPS; i++) {
+  const stepHeight = stairStepHeight * (i + 1);
+  const step = new THREE.Mesh(new THREE.BoxGeometry(STAIR_WIDTH, stepHeight, stairStepDepth), hallStoneMaterial);
+  const z = STAIR_Z_BOTTOM - (i + 0.5) * stairStepDepth;
+  step.position.set(STAIR_X, HALLWAY_FLOOR_Y + stepHeight / 2, z);
+  step.castShadow = true;
+  step.receiveShadow = true;
+  staircaseGroup.add(step);
+}
+hallGroup.add(staircaseGroup);
+
+// --- Balcony walkway + railings -----------------------------------------
+function createBalconySlab(xMin, xMax, zMin, zMax) {
+  const slab = new THREE.Mesh(new THREE.BoxGeometry(xMax - xMin, 0.6, zMax - zMin), hallStoneMaterial);
+  slab.position.set((xMin + xMax) / 2, HALLWAY_FLOOR_Y + BALCONY_HEIGHT - 0.3, (zMin + zMax) / 2);
+  slab.castShadow = true;
+  slab.receiveShadow = true;
+  hallGroup.add(slab);
+}
+createBalconySlab(RIGHT_STRIP_X_MIN, RIGHT_STRIP_X_MAX, RIGHT_STRIP_Z_MIN, RIGHT_STRIP_Z_MAX);
+createBalconySlab(BACK_STRIP_X_MIN, BACK_STRIP_X_MAX, BACK_STRIP_Z_MIN, BACK_STRIP_Z_MAX);
+
+const railMaterial = new THREE.MeshStandardMaterial({ color: 0x6b5d42, roughness: 0.7, metalness: 0.1 });
+function createRail(width, depth, x, z) {
+  const rail = new THREE.Mesh(new THREE.BoxGeometry(width, BALCONY_RAIL_HEIGHT, depth), railMaterial);
+  rail.position.set(x, HALLWAY_FLOOR_Y + BALCONY_HEIGHT + BALCONY_RAIL_HEIGHT / 2, z);
+  rail.castShadow = true;
+  hallGroup.add(rail);
+}
+// Along the back strip's open (inner) edge, facing the ground floor drop.
+createRail(BACK_STRIP_X_MAX - BACK_STRIP_X_MIN, 0.3, 0, BACK_STRIP_Z_MAX);
+// Along the right strip's open (inner) edge.
+createRail(0.3, RIGHT_STRIP_Z_MAX - RIGHT_STRIP_Z_MIN, RIGHT_STRIP_X_MIN, (RIGHT_STRIP_Z_MIN + RIGHT_STRIP_Z_MAX) / 2);
+
+// --- Text panel helper --------------------------------------------
+// Renders text onto an offscreen 2D canvas and applies it as a texture —
+// a lightweight, dependency-free stand-in for real 3D typography (which
+// would need a loaded font file for THREE.TextGeometry).
+function createTextPanel(lines, { width = 6, height = 2.6, bg = '#1c140d', fg = '#f1e6c8', accent = '#c9a227' } = {}) {
+  const canvasEl = document.createElement('canvas');
+  canvasEl.width = 512;
+  canvasEl.height = Math.round((height / width) * 512);
+  const ctx = canvasEl.getContext('2d');
+
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, canvasEl.width, canvasEl.height);
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = 10;
+  ctx.strokeRect(5, 5, canvasEl.width - 10, canvasEl.height - 10);
+
+  ctx.fillStyle = fg;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const lineHeight = canvasEl.height / (lines.length + 1);
+  lines.forEach((line, i) => {
+    ctx.font = i === 0 ? 'bold 46px Georgia, serif' : '30px Georgia, serif';
+    ctx.fillText(line, canvasEl.width / 2, lineHeight * (i + 1));
+  });
+
+  const texture = new THREE.CanvasTexture(canvasEl);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return new THREE.Mesh(new THREE.PlaneGeometry(width, height), new THREE.MeshBasicMaterial({ map: texture, transparent: true }));
+}
+
+const SKILLS = ['Frontend Development', '3D Graphics', 'UI / UX Design'];
+SKILLS.forEach((skill, i) => {
+  const panel = createTextPanel([skill]);
+  panel.position.set(-HALL_HALF_WIDTH + WALL_THICKNESS / 2 + 0.05, HALLWAY_FLOOR_Y + 4, HALLWAY_END_Z - 14 - i * 22);
+  panel.rotation.y = Math.PI / 2;
+  hallGroup.add(panel);
+});
+
+// --- Balcony doors + shared "Project Showcases" tag ---------------------
+const DOOR_WIDTH = 3.2;
+const DOOR_HEIGHT = 5.5;
+const doorMaterial = new THREE.MeshStandardMaterial({ color: 0x5b3a24, roughness: 0.7, metalness: 0.1 });
+const doorMeshes = [];
+
+[-18, -6, 6, 18].forEach((x, i) => {
+  const frame = new THREE.Mesh(new THREE.BoxGeometry(DOOR_WIDTH + 0.8, DOOR_HEIGHT + 0.8, 0.6), hallStoneMaterial);
+  frame.position.set(x, HALLWAY_FLOOR_Y + BALCONY_HEIGHT + (DOOR_HEIGHT + 0.8) / 2, HALL_END_Z + WALL_THICKNESS / 2);
+  frame.castShadow = true;
+  hallGroup.add(frame);
+
+  const door = new THREE.Mesh(new THREE.BoxGeometry(DOOR_WIDTH, DOOR_HEIGHT, 0.3), doorMaterial);
+  door.position.set(x, HALLWAY_FLOOR_Y + BALCONY_HEIGHT + DOOR_HEIGHT / 2, HALL_END_Z + WALL_THICKNESS / 2 + 0.4);
+  door.castShadow = true;
+  door.receiveShadow = true;
+  door.userData.isDoor = true;
+  door.userData.doorLabel = `Project Showcase ${i + 1}`;
+  hallGroup.add(door);
+  doorMeshes.push(door);
+});
+
+const showcaseTag = createTextPanel(['Project Showcases'], { width: 7, height: 1.6 });
+showcaseTag.position.set(0, HALLWAY_FLOOR_Y + BALCONY_HEIGHT + DOOR_HEIGHT + 1.4, HALL_END_Z + 0.6);
+hallGroup.add(showcaseTag);
+
+// --- Central contact table + floating icon ------------------------
+const tableMaterial = new THREE.MeshStandardMaterial({ color: 0x6b4a30, roughness: 0.7, metalness: 0.05 });
+const tableGroup = new THREE.Group();
+const tabletop = new THREE.Mesh(new THREE.BoxGeometry(5.5, 0.4, 2.8), tableMaterial);
+tabletop.position.y = 2.2;
+tableGroup.add(tabletop);
+const legGeo = new THREE.CylinderGeometry(0.18, 0.22, 2.2, 12);
+[[-2.4, -1.1], [2.4, -1.1], [-2.4, 1.1], [2.4, 1.1]].forEach(([lx, lz]) => {
+  const leg = new THREE.Mesh(legGeo, tableMaterial);
+  leg.position.set(lx, 1.1, lz);
+  tableGroup.add(leg);
+});
+tableGroup.traverse((c) => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+tableGroup.position.set(0, HALLWAY_FLOOR_Y, hallCenterZ);
+hallGroup.add(tableGroup);
+
+// Neon-glowing "Contact Info" icon: emissive MeshStandardMaterial gives
+// the glow ON the object; the small PointLight alongside it casts that
+// glow onto the table and floor. No shadow — this is a small accent
+// light, and the scene's shadow-casting budget is already spent on the
+// sun + colonnade spotlights.
+const contactIconMaterial = new THREE.MeshStandardMaterial({
+  color: 0x22e5ff, emissive: 0x22e5ff, emissiveIntensity: 1.6, roughness: 0.25, metalness: 0.3,
+});
+const contactIcon = new THREE.Mesh(new THREE.OctahedronGeometry(0.55, 0), contactIconMaterial);
+const contactIconBaseY = HALLWAY_FLOOR_Y + 2.2 + 0.4 + 1.1;
+contactIcon.position.set(0, contactIconBaseY, hallCenterZ);
+contactIcon.userData.isContactIcon = true;
+hallGroup.add(contactIcon);
+
+const contactIconLight = new THREE.PointLight(0x22e5ff, 3.5, 12);
+contactIconLight.position.copy(contactIcon.position);
+hallGroup.add(contactIconLight);
+
+// Stands in for light spilling down through a Pantheon-style oculus.
+const hallFillLight = new THREE.PointLight(0xffe3b8, 0, 140);
+hallFillLight.position.set(0, HALL_CEILING_Y - 3, hallCenterZ);
+hallGroup.add(hallFillLight);
+
+/* ====================================================================
+   11. CAMERA CINEMATIC TRANSITION — the hourglass dive
+   ==================================================================== */
+
+const SAND_APEX_Y = -BULB_HEIGHT + 1.1;
 const camStart = new THREE.Vector3(0, 2.5, 11);
 const camEnd = new THREE.Vector3(0.35, SAND_APEX_Y + 0.25, 0.5);
-
 const lookStart = new THREE.Vector3(0, 0, 0);
 const lookEnd = new THREE.Vector3(0, SAND_APEX_Y - 0.3, 0.15);
 
 camera.position.copy(camStart);
 camera.lookAt(lookStart);
 
-// Scratch vectors reused every frame by both the dive AND the travel below.
 const _camPos = new THREE.Vector3();
 const _lookPos = new THREE.Vector3();
 
 function easeInOutCubic(t) {
-  return t < 0.5
-    ? 4 * t * t * t
-    : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
 /* ====================================================================
-   11. ORBIT CONTROLS
-   ====================================================================
-   Disabled while either scripted camera sequence (the dive, then the
-   travel) drives the camera. Enabled once the glide finishes at the
-   hallway threshold — from then on it's repurposed as a "look-around on
-   a leash" rig for first-person hallway navigation (see section 13).
-*/
+   12. ORBIT CONTROLS
+   ==================================================================== */
+
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enabled = false;
 controls.enableDamping = true;
@@ -801,102 +900,109 @@ controls.dampingFactor = 0.08;
 controls.target.copy(lookEnd);
 
 /* ====================================================================
-   12. THE TRAVEL ANIMATION — gliding across the dunes to the colonnade
-   ====================================================================
-   Same lerpVectors + easing technique as the hourglass dive, plus one
-   addition: after computing the eased X/Z position, we OVERRIDE the
-   camera's Y with the actual dune height sampled at that X/Z, so the
-   shot hugs the rolling dunes instead of sliding along a flat line.
+   13. THE TRAVEL ANIMATION — gliding to the colonnade threshold
+   ==================================================================== */
 
-   THE NUMBERS BELOW ARE THE ONES TO TUNE FOR PACING/FRAMING:
-*/
-
-const TRAVEL_EYE_HEIGHT = 2.2; // "first-person" eye height above the ground, both outside and in the hallway
-const TRAVEL_DURATION = 9;    // seconds — glide time from the sand mound to the hallway threshold
-const TRAVEL_LOOKAHEAD = 60;  // how far past the *look-at* target leads the final camera position
+const TRAVEL_EYE_HEIGHT = 2.2;
+const TRAVEL_DURATION = 9;
+const TRAVEL_LOOKAHEAD = 60;
 
 const travelStart = camEnd.clone();
 const travelLookStart = lookEnd.clone();
-
-// The glide now ends exactly at the colonnade's threshold — HALLWAY_START_Z
-// — handing off to manual first-person walking right as you cross into it.
-const travelEnd = new THREE.Vector3(
-  0,
-  getTerrainHeight(0, HALLWAY_START_Z) + TRAVEL_EYE_HEIGHT,
-  HALLWAY_START_Z
-);
-
+const travelEnd = new THREE.Vector3(0, getTerrainHeight(0, HALLWAY_START_Z) + TRAVEL_EYE_HEIGHT, HALLWAY_START_Z);
 const travelLookEndZ = HALLWAY_START_Z - TRAVEL_LOOKAHEAD;
 const travelLookEnd = new THREE.Vector3(0, HALLWAY_FLOOR_Y + TRAVEL_EYE_HEIGHT, travelLookEndZ);
 
 function updateCameraTravel(travelElapsed) {
   const t = Math.min(travelElapsed / TRAVEL_DURATION, 1);
   const eased = easeInOutCubic(t);
-
   _camPos.lerpVectors(travelStart, travelEnd, eased);
   _lookPos.lerpVectors(travelLookStart, travelLookEnd, eased);
-
   camera.position.copy(_camPos);
-  // Terrain-following Y — comment out to fall back to a straight-line glide.
   camera.position.y = getTerrainHeight(camera.position.x, camera.position.z) + TRAVEL_EYE_HEIGHT;
-
   camera.lookAt(_lookPos);
   controls.target.copy(_lookPos);
-
   return t;
 }
 
 /* ====================================================================
-   13. FIRST-PERSON HALLWAY NAVIGATION
+   14. FREE EXPLORATION — corridor + Great Hall navigation
    ====================================================================
-   Movement: the mouse wheel (or Arrow/W-S keys) sets a `targetPlayerZ`,
-   clamped to stay inside the hallway. Each frame `playerZ` eases toward
-   it with `THREE.MathUtils.damp` — an exponential, FRAME-RATE-INDEPENDENT
-   smoothing function (unlike a fixed-factor lerp, its result doesn't
-   change if your monitor runs at 60Hz vs 144Hz). Only the resulting
-   PER-FRAME DELTA is applied to the camera, which is what keeps X locked
-   dead-center — we only ever translate along Z, never sideways.
+   Movement: the wheel (forward/back) and W/A/S/D or Arrow keys (full 2D)
+   set a `targetPlayerX/Z`, clamped so you can't clip through a wall or
+   fall out of the level. Each frame the actual `playerX/Z` eases toward
+   that target with `THREE.MathUtils.damp` — an exponential,
+   FRAME-RATE-INDEPENDENT smoothing function. Only the resulting PER-
+   FRAME DELTA is applied to the camera and to OrbitControls' target
+   together, which is what keeps the "look rig" (see section 12's
+   tiny-radius trick, set up in enterExploringMode below) moving as one
+   unit without disturbing whatever direction you're currently looking.
 
-   Look-around: OrbitControls always aims the camera at `controls.target`.
-   By keeping that target just a hair in front of the camera (radius
-   LOOK_OFFSET_RADIUS) and pinning min/maxDistance to that same radius, a
-   mouse-drag "orbit" only swings the camera through a tiny arc around a
-   point right in front of your face — which reads as turning your head,
-   not walking around an object. Translating camera + target by the same
-   per-frame delta then moves this whole tiny "look rig" forward together
-   without disturbing whatever direction you're currently looking.
+   Height (Y) comes from getFloorHeightAt(playerX, playerZ) — since
+   playerX/Z are already smoothed, the resulting eye height is smooth
+   too, which is what makes climbing the staircase read as a continuous
+   ascent rather than a series of pops.
 */
 
-const WALK_SPEED = 14;          // units/second while an arrow/W-S key is held
-const SCROLL_SPEED = 0.05;      // world units moved per wheel "tick" (deltaY)
-const HALLWAY_DAMPING = 6;      // higher = snappier stop/start, lower = floatier glide
-const LOOK_OFFSET_RADIUS = 0.15; // how far ahead of the camera the OrbitControls target sits
+const WALK_SPEED = 14;
+const SCROLL_SPEED = 0.05;
+const HALLWAY_DAMPING = 6;
+const LOOK_OFFSET_RADIUS = 0.15;
 
-let playerZ = 0;
-let targetPlayerZ = 0;
-const keyState = { forward: false, backward: false };
+let playerX = 0, playerZ = 0;
+let targetPlayerX = 0, targetPlayerZ = 0;
+const keyState = { forward: false, backward: false, left: false, right: false };
 
-function clampPlayerZ(z) {
-  // A small margin keeps the camera from ever touching the geometry at
-  // either end of the hallway.
-  return THREE.MathUtils.clamp(z, HALLWAY_END_Z + 6, HALLWAY_START_Z);
+// `fromZ` is where the player CURRENTLY is — it decides whether we're
+// "in the corridor" or "in the hall" for this frame's X bound, which is
+// what prevents a jarring sideways snap: you can only ever cross between
+// the two rooms while lined up with the doorway (|x| <= corridor width).
+function clampPlayerPosition(x, z, fromZ) {
+  const wasInCorridor = fromZ >= HALLWAY_END_Z;
+  const currentHalfWidth = wasInCorridor ? CORRIDOR_HALF_WIDTH : (HALL_HALF_WIDTH - WALL_MARGIN);
+  x = THREE.MathUtils.clamp(x, -currentHalfWidth, currentHalfWidth);
+
+  if (Math.abs(x) <= CORRIDOR_HALF_WIDTH) {
+    z = THREE.MathUtils.clamp(z, HALL_END_Z + WALL_MARGIN, HALLWAY_START_Z);
+  } else {
+    z = wasInCorridor
+      ? THREE.MathUtils.clamp(z, HALLWAY_END_Z, HALLWAY_START_Z)
+      : THREE.MathUtils.clamp(z, HALL_END_Z + WALL_MARGIN, HALLWAY_END_Z);
+  }
+  return { x, z };
 }
 
-function updateHallwayMovement(dt) {
+function updateExploringMovement(dt) {
   if (keyState.forward) targetPlayerZ -= WALK_SPEED * dt;
   if (keyState.backward) targetPlayerZ += WALK_SPEED * dt;
-  targetPlayerZ = clampPlayerZ(targetPlayerZ);
+  if (keyState.left) targetPlayerX -= WALK_SPEED * dt;
+  if (keyState.right) targetPlayerX += WALK_SPEED * dt;
 
-  const previousPlayerZ = playerZ;
+  const clamped = clampPlayerPosition(targetPlayerX, targetPlayerZ, playerZ);
+  targetPlayerX = clamped.x;
+  targetPlayerZ = clamped.z;
+
+  const prevX = playerX, prevZ = playerZ;
+  playerX = THREE.MathUtils.damp(playerX, targetPlayerX, HALLWAY_DAMPING, dt);
   playerZ = THREE.MathUtils.damp(playerZ, targetPlayerZ, HALLWAY_DAMPING, dt);
-  const deltaZ = playerZ - previousPlayerZ;
+  const deltaX = playerX - prevX;
+  const deltaZ = playerZ - prevZ;
 
+  camera.position.x += deltaX;
   camera.position.z += deltaZ;
+  controls.target.x += deltaX;
   controls.target.z += deltaZ;
+
+  const eyeY = getFloorHeightAt(playerX, playerZ) + TRAVEL_EYE_HEIGHT;
+  const deltaY = eyeY - camera.position.y;
+  camera.position.y += deltaY;
+  controls.target.y += deltaY;
 }
 
-function enterHallwayNavigation() {
+function enterExploringMode() {
+  playerX = camera.position.x;
   playerZ = camera.position.z;
+  targetPlayerX = playerX;
   targetPlayerZ = playerZ;
 
   const forward = new THREE.Vector3();
@@ -905,65 +1011,66 @@ function enterHallwayNavigation() {
 
   controls.minDistance = LOOK_OFFSET_RADIUS;
   controls.maxDistance = LOOK_OFFSET_RADIUS;
-  controls.enableZoom = false; // the wheel drives walking now, not zoom/dolly
-  controls.enablePan = false;  // no sideways drift — stay centered in the hallway
+  controls.enableZoom = false;
+  controls.enablePan = false;
   controls.minPolarAngle = 0.15;
   controls.maxPolarAngle = Math.PI - 0.15;
   controls.enabled = true;
 }
 
 window.addEventListener('wheel', (event) => {
-  if (sequenceState !== 'hallway' || dialogueOpen) return;
-  targetPlayerZ = clampPlayerZ(targetPlayerZ - event.deltaY * SCROLL_SPEED);
+  if (sequenceState !== 'exploring' || dialogueOpen || contactPopupOpen) return;
+  const clamped = clampPlayerPosition(targetPlayerX, targetPlayerZ - event.deltaY * SCROLL_SPEED, playerZ);
+  targetPlayerX = clamped.x;
+  targetPlayerZ = clamped.z;
 }, { passive: true });
 
 window.addEventListener('keydown', (event) => {
   if (event.key === 'ArrowUp' || event.key === 'w' || event.key === 'W') keyState.forward = true;
   if (event.key === 'ArrowDown' || event.key === 's' || event.key === 'S') keyState.backward = true;
+  if (event.key === 'ArrowLeft' || event.key === 'a' || event.key === 'A') keyState.left = true;
+  if (event.key === 'ArrowRight' || event.key === 'd' || event.key === 'D') keyState.right = true;
   if (dialogueOpen && event.key === 'Enter') { event.preventDefault(); closeDialogue(); }
+  if (contactPopupOpen && event.key === 'Escape') closeContactPopup();
 });
 
 window.addEventListener('keyup', (event) => {
   if (event.key === 'ArrowUp' || event.key === 'w' || event.key === 'W') keyState.forward = false;
   if (event.key === 'ArrowDown' || event.key === 's' || event.key === 'S') keyState.backward = false;
+  if (event.key === 'ArrowLeft' || event.key === 'a' || event.key === 'A') keyState.left = false;
+  if (event.key === 'ArrowRight' || event.key === 'd' || event.key === 'D') keyState.right = false;
 });
 
 /* ====================================================================
-   14. HALLWAY LIGHTING TRANSITION
-   ====================================================================
-   Dims the outdoor ambient/hemisphere/sun lighting down to something
-   "structural" the moment you cross into the colonnade, letting the
-   warm SpotLights from section 8 become the dominant light source.
-*/
+   15. LIGHTING TRANSITIONS (reusable — used for both the colonnade
+       entry AND the deeper transition into the Great Hall)
+   ==================================================================== */
 
-const HALLWAY_LIGHT_TRANSITION_DURATION = 2.5;
-let hallwayEnterElapsed = null;
-let hallwayLightFrom = null;
+const LIGHT_TRANSITION_DURATION = 2.5;
+let lightTransition = null;
 
-function beginHallwayLightTransition(elapsed) {
-  hallwayEnterElapsed = elapsed;
-  hallwayLightFrom = {
-    ambient: ambientLight.intensity,
-    hemi: hemiLight.intensity,
-    sun: sunLight.intensity,
+function beginLightTransition(elapsed, targets) {
+  lightTransition = {
+    startElapsed: elapsed,
+    from: { ambient: ambientLight.intensity, hemi: hemiLight.intensity, sun: sunLight.intensity, hallFill: hallFillLight.intensity },
+    to: targets,
   };
 }
 
-function updateHallwayLighting(elapsed) {
-  const t = THREE.MathUtils.clamp((elapsed - hallwayEnterElapsed) / HALLWAY_LIGHT_TRANSITION_DURATION, 0, 1);
+function updateLightTransition(elapsed) {
+  if (!lightTransition) return;
+  const t = THREE.MathUtils.clamp((elapsed - lightTransition.startElapsed) / LIGHT_TRANSITION_DURATION, 0, 1);
   const eased = easeInOutCubic(t);
-
-  ambientLight.intensity = THREE.MathUtils.lerp(hallwayLightFrom.ambient, 0.18, eased);
-  hemiLight.intensity = THREE.MathUtils.lerp(hallwayLightFrom.hemi, 0.15, eased);
-  sunLight.intensity = THREE.MathUtils.lerp(hallwayLightFrom.sun, 0.4, eased); // a little still filters in between columns
+  const { from, to } = lightTransition;
+  ambientLight.intensity = THREE.MathUtils.lerp(from.ambient, to.ambient, eased);
+  hemiLight.intensity = THREE.MathUtils.lerp(from.hemi, to.hemi, eased);
+  sunLight.intensity = THREE.MathUtils.lerp(from.sun, to.sun, eased);
+  hallFillLight.intensity = THREE.MathUtils.lerp(from.hallFill, to.hallFill, eased);
 }
 
 /* ====================================================================
-   15. MOUSE CLICK INTERACTIVITY — Raycasting & the RPG dialogue box
+   16. RPG DIALOGUE BOX (Roman guides)
    ==================================================================== */
-
-const raycaster = new THREE.Raycaster();
-const pointerNDC = new THREE.Vector2();
 
 const dialogueBox = document.getElementById('dialogue-box');
 const dialogueNameEl = document.getElementById('dialogue-name');
@@ -972,96 +1079,125 @@ const dialogueCloseBtn = document.getElementById('dialogue-close');
 
 let dialogueOpen = false;
 
-function pickGuideAt(clientX, clientY) {
-  pointerNDC.x = (clientX / window.innerWidth) * 2 - 1;
-  pointerNDC.y = -(clientY / window.innerHeight) * 2 + 1;
-  raycaster.setFromCamera(pointerNDC, camera);
-
-  const hits = raycaster.intersectObjects(guideGroups, true); // true: also test child meshes (body/head/sash)
-  if (hits.length === 0) return null;
-
-  // Guide meshes are children of a tagged Group — walk up until we find it.
-  let obj = hits[0].object;
-  while (obj && !obj.userData.isGuide) obj = obj.parent;
-  return obj;
-}
-
 function openDialogue(guide) {
   dialogueOpen = true;
-  controls.enabled = false; // pause camera movement AND look-around while talking
-
+  controls.enabled = false;
   const { name, lines, tunicColor } = guide.userData;
   dialogueNameEl.textContent = name;
   dialogueNameEl.style.background = '#' + tunicColor.toString(16).padStart(6, '0');
   dialogueTextEl.textContent = lines[Math.floor(Math.random() * lines.length)];
-
   dialogueBox.classList.remove('dialogue-hidden');
 }
 
 function closeDialogue() {
   dialogueOpen = false;
   dialogueBox.classList.add('dialogue-hidden');
-  if (sequenceState === 'hallway') controls.enabled = true; // let the user walk (and look) again
+  if (sequenceState === 'exploring') controls.enabled = true;
 }
-
-canvas.addEventListener('click', (event) => {
-  if (sequenceState !== 'hallway' || dialogueOpen) return;
-  const guide = pickGuideAt(event.clientX, event.clientY);
-  if (guide) openDialogue(guide);
-});
-
-// A hover cursor makes the guides read as clickable before you try.
-canvas.addEventListener('pointermove', (event) => {
-  if (sequenceState !== 'hallway' || dialogueOpen) { canvas.style.cursor = 'default'; return; }
-  canvas.style.cursor = pickGuideAt(event.clientX, event.clientY) ? 'pointer' : 'default';
-});
 
 dialogueCloseBtn.addEventListener('click', closeDialogue);
 
 /* ====================================================================
-   16. SEQUENCE TIMING / STATE MACHINE
+   17. CONTACT POPUP + DOOR TOAST + UNIFIED RAYCASTING
+   ==================================================================== */
+
+const contactPopup = document.getElementById('contact-popup');
+const contactCloseBtn = document.getElementById('contact-close');
+let contactPopupOpen = false;
+
+function openContactPopup() {
+  contactPopupOpen = true;
+  controls.enabled = false;
+  contactPopup.classList.remove('contact-hidden');
+}
+function closeContactPopup() {
+  contactPopupOpen = false;
+  contactPopup.classList.add('contact-hidden');
+  if (sequenceState === 'exploring') controls.enabled = true;
+}
+contactCloseBtn.addEventListener('click', closeContactPopup);
+contactPopup.querySelectorAll('[data-close]').forEach((el) => el.addEventListener('click', closeContactPopup));
+
+const toastEl = document.getElementById('toast');
+let toastTimeoutId = null;
+function showDoorToast(label) {
+  console.log(`${label}: Door opening animation unlocked in next update!`);
+  toastEl.textContent = 'Door opening animation unlocked in next update!';
+  toastEl.classList.add('toast-visible');
+  clearTimeout(toastTimeoutId);
+  toastTimeoutId = setTimeout(() => toastEl.classList.remove('toast-visible'), 3200);
+}
+
+const raycaster = new THREE.Raycaster();
+const pointerNDC = new THREE.Vector2();
+
+function pickInteractiveAt(clientX, clientY) {
+  pointerNDC.x = (clientX / window.innerWidth) * 2 - 1;
+  pointerNDC.y = -(clientY / window.innerHeight) * 2 + 1;
+  raycaster.setFromCamera(pointerNDC, camera);
+
+  const hits = raycaster.intersectObjects([...guideGroups, contactIcon, ...doorMeshes], true);
+  if (hits.length === 0) return null;
+
+  let obj = hits[0].object;
+  while (obj && !(obj.userData.isGuide || obj.userData.isContactIcon || obj.userData.isDoor)) {
+    obj = obj.parent;
+  }
+  return obj;
+}
+
+canvas.addEventListener('click', (event) => {
+  if (sequenceState !== 'exploring' || dialogueOpen || contactPopupOpen) return;
+  const hit = pickInteractiveAt(event.clientX, event.clientY);
+  if (!hit) return;
+  if (hit.userData.isGuide) openDialogue(hit);
+  else if (hit.userData.isContactIcon) openContactPopup();
+  else if (hit.userData.isDoor) showDoorToast(hit.userData.doorLabel);
+});
+
+canvas.addEventListener('pointermove', (event) => {
+  if (sequenceState !== 'exploring' || dialogueOpen || contactPopupOpen) { canvas.style.cursor = 'default'; return; }
+  canvas.style.cursor = pickInteractiveAt(event.clientX, event.clientY) ? 'pointer' : 'default';
+});
+
+/* ====================================================================
+   18. SEQUENCE TIMING / STATE MACHINE
    ==================================================================== */
 
 const ZOOM_DURATION = 4.5;
 const FADE_START = 3.4;
 const FADE_DURATION = 1.6;
 
-// 'intro'     — camera dives into the hourglass sand (section 10)
+// 'intro'     — camera dives into the hourglass sand (section 11)
 // 'revealing' — hourglass fades out, dunes + archway + golden light fade in
-// 'traveling' — first-person glide across the dunes to the colonnade (section 12)
-// 'hallway'   — glide has finished; the visitor walks/looks freely and can talk to guides
+// 'traveling' — first-person glide across the dunes to the colonnade (section 13)
+// 'exploring' — glide finished; free walk/look through the colonnade AND the Great Hall (section 14)
 let sequenceState = 'intro';
 let travelStartElapsed = null;
-let lastElapsed = 0; // used to derive a per-frame dt without double-consuming THREE.Clock
+let lastElapsed = 0;
+let enteredHallOnce = false;
 
 const clock = new THREE.Clock();
 
 function updateCameraDive(elapsed) {
   const t = Math.min(elapsed / ZOOM_DURATION, 1);
   const eased = easeInOutCubic(t);
-
   _camPos.lerpVectors(camStart, camEnd, eased);
   _lookPos.lerpVectors(lookStart, lookEnd, eased);
-
   camera.position.copy(_camPos);
   camera.lookAt(_lookPos);
   controls.target.copy(_lookPos);
-
   return t;
 }
 
 function updateReveal(elapsed) {
   const fadeT = THREE.MathUtils.clamp((elapsed - FADE_START) / FADE_DURATION, 0, 1);
   const eased = easeInOutCubic(fadeT);
-
   glassMaterial.opacity = 1 - eased;
   capMaterial.opacity = 1 - eased;
-
   duneMaterial.opacity = eased;
   archMaterials.forEach((m) => { m.opacity = eased; });
-
   updateLighting(eased);
-
   return fadeT;
 }
 
@@ -1074,25 +1210,23 @@ function updateLighting(eased) {
 
   ambientLight.intensity = THREE.MathUtils.lerp(0.6, 0.55, eased);
   ambientLight.color.set(0x404060).lerp(new THREE.Color(0xffdfb0), eased);
-
   hemiLight.intensity = THREE.MathUtils.lerp(0.15, 0.8, eased);
   hemiLight.color.set(0x111122).lerp(new THREE.Color(0xffb37a), eased);
   hemiLight.groundColor.set(0x000000).lerp(new THREE.Color(SAND_COLOR), eased);
 
   keyLight.intensity = THREE.MathUtils.lerp(6.0, 0, eased);
   rimLight.intensity = THREE.MathUtils.lerp(1.2, 0, eased);
-
   sunLight.intensity = THREE.MathUtils.lerp(0, 2.4, eased);
 }
 
 /* ====================================================================
-   17. RENDER LOOP
+   19. RENDER LOOP
    ==================================================================== */
 
 function animate() {
   requestAnimationFrame(animate);
   const elapsed = clock.getElapsedTime();
-  const dt = elapsed - lastElapsed; // manual per-frame delta — see note on `lastElapsed` above
+  const dt = elapsed - lastElapsed;
   lastElapsed = elapsed;
 
   if (sequenceState === 'intro') {
@@ -1104,37 +1238,47 @@ function animate() {
   }
 
   if (sequenceState === 'revealing') {
-    if (elapsed < ZOOM_DURATION) {
-      updateCameraDive(elapsed);
-    }
+    if (elapsed < ZOOM_DURATION) updateCameraDive(elapsed);
     const fadeT = updateReveal(elapsed);
     if (fadeT >= 1 && elapsed >= ZOOM_DURATION) {
       sequenceState = 'traveling';
       travelStartElapsed = elapsed;
       hourglassGroup.visible = false;
       keyLight.visible = false;
-      camera.near = 0.05; // safe now that we're not millimeters from geometry
+      camera.near = 0.05;
       camera.updateProjectionMatrix();
       phaseLabel.textContent = 'Phase: Riding the Dunes to the Archway';
     }
   }
 
   if (sequenceState === 'traveling') {
-    const travelElapsed = elapsed - travelStartElapsed;
-    const t = updateCameraTravel(travelElapsed);
+    const t = updateCameraTravel(elapsed - travelStartElapsed);
     if (t >= 1) {
-      sequenceState = 'hallway';
-      enterHallwayNavigation();
-      beginHallwayLightTransition(elapsed);
-      phaseLabel.textContent = 'Phase: The Colonnade — scroll/arrows to walk, drag to look, click a guide to talk';
+      sequenceState = 'exploring';
+      enterExploringMode();
+      beginLightTransition(elapsed, { ambient: 0.18, hemi: 0.15, sun: 0.4, hallFill: 0 });
+      phaseLabel.textContent = 'Phase: The Colonnade — scroll/WASD to walk, drag to look, click to interact';
       phaseLabel.style.opacity = '0';
     }
   }
 
-  if (sequenceState === 'hallway') {
-    updateHallwayLighting(elapsed);
-    if (!dialogueOpen) {
-      updateHallwayMovement(dt);
+  if (sequenceState === 'exploring') {
+    updateLightTransition(elapsed);
+
+    if (!enteredHallOnce && playerZ < HALLWAY_END_Z) {
+      enteredHallOnce = true;
+      beginLightTransition(elapsed, { ambient: 0.1, hemi: 0.08, sun: 0, hallFill: 1.3 });
+    }
+
+    // The floating contact icon keeps spinning/bobbing even while a
+    // dialogue or popup has paused movement, so it always reads as "alive".
+    contactIcon.rotation.y += dt * 0.9;
+    contactIcon.rotation.x += dt * 0.4;
+    contactIcon.position.y = contactIconBaseY + Math.sin(elapsed * 1.6) * 0.18;
+    contactIconLight.position.y = contactIcon.position.y;
+
+    if (!dialogueOpen && !contactPopupOpen) {
+      updateExploringMovement(dt);
       controls.update();
     }
   }
@@ -1145,7 +1289,7 @@ function animate() {
 animate();
 
 /* ====================================================================
-   18. RESPONSIVE RESIZE
+   20. RESPONSIVE RESIZE
    ==================================================================== */
 
 window.addEventListener('resize', () => {
@@ -1155,23 +1299,25 @@ window.addEventListener('resize', () => {
 });
 
 /* ====================================================================
-   19. SWAPPING IN REAL GLTF MODELS (for later steps)
+   21. SWAPPING IN REAL GLTF MODELS (for later steps)
    ====================================================================
-   HOURGLASS / ARCHWAY: see the notes carried over from Steps 1-2 — the
-   short version is: load into the existing `hourglassGroup` /
-   `archwayGroup`, push real materials into `archMaterials` so the fade
-   in updateReveal() keeps working, and re-check the position constants
-   that assume the placeholder geometry's dimensions.
+   HOURGLASS / ARCHWAY / COLONNADE / GUIDES: see the notes carried over
+   from Steps 1-3 — load into the existing groups (`hourglassGroup`,
+   `archwayGroup`, per-column/per-guide groups from `createColumn()` /
+   `createGuide()`), push real materials into `archMaterials` so the fade
+   in updateReveal() keeps working, and keep setting the same `userData`
+   flags (`isGuide`, `isDoor`, `isContactIcon`) so section 17's raycaster
+   keeps recognizing them.
 
-   COLONNADE COLUMNS / GUIDES: `createColumn()` and `createGuide()` are
-   the two functions to replace. Each already returns/adds a single
-   Group positioned at a given (x, z) — swap the primitive meshes inside
-   for a GLTFLoader call that loads into that same group, and everything
-   that depends on position (the column spacing loop, `columnZs`, the
-   guides' `columnIndex` lookups) keeps working unmodified. For guides,
-   keep setting `group.userData.isGuide / .name / .lines / .tunicColor` on
-   whatever group you return — that's the only contract section 15's
-   raycaster and dialogue box actually depend on.
+   GREAT HALL: `createWall()`, `createHallPillar()`, `createBalconySlab()`,
+   and the door/table/icon blocks in section 10 are all independent —
+   swap any one for a GLTFLoader call without touching the others. The
+   one thing every replacement must preserve is FOOTPRINT: `getFloorHeightAt()`
+   (and the movement clamp in section 14) both assume the staircase and
+   balcony geometry sit exactly within the STAIR_ and _STRIP_ constants
+   from section 4 — resize a model to match those, rather than changing
+   the model's transform ad hoc, and the player's feet will still land in
+   the right place.
 */
 </script>
 </body>
