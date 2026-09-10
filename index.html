@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Step 6 — Project Showcase Doors</title>
+<title>Step 7 — Textures, Shadows &amp; Game Audio</title>
 <style>
   html, body {
     margin: 0; padding: 0; width: 100%; height: 100%;
@@ -146,6 +146,23 @@
     transition: opacity 0.2s ease;
   }
   #interact-prompt.prompt-hidden { opacity: 0; }
+  /* ---------------------------------------------------------------- */
+  /* AUDIO MUTE/UNMUTE TOGGLE (top-right corner)                       */
+  /* ---------------------------------------------------------------- */
+  #audio-toggle {
+    position: fixed; top: 20px; right: 20px; z-index: 25;
+    width: 44px; height: 44px; border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(10, 10, 14, 0.55);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    color: #f1e6c8; font-size: 19px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.15s ease, color 0.15s ease;
+  }
+  #audio-toggle:hover { background: rgba(255, 255, 255, 0.14); transform: scale(1.06); }
+  #audio-toggle.muted { color: rgba(241, 230, 200, 0.45); }
+
   #interact-prompt kbd {
     background: rgba(241, 230, 200, 0.15); border: 1px solid rgba(241, 230, 200, 0.3);
     border-radius: 4px; padding: 1px 6px; font-family: inherit; font-weight: 700;
@@ -249,6 +266,18 @@
 
 <canvas id="app-canvas"></canvas>
 <div id="phase-label">Phase: Intro — Hourglass</div>
+
+<!--
+  PLACEHOLDER AMBIENCE TRACK — SoundHelix publishes these test tracks
+  specifically as stable, royalty-free "drop-in" audio for exactly this
+  kind of demo/prototype use. Swap the src for your own cinematic/ambient
+  loop when you have one; playback degrades silently (see the `error`
+  listener in the module script) if this URL is ever unreachable, so a
+  bad link never breaks the rest of the page.
+-->
+<audio id="bg-ambience" src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" loop preload="auto"></audio>
+
+<button id="audio-toggle" class="audio-toggle" aria-label="Mute background audio" aria-pressed="false" title="Mute/unmute audio">🔊</button>
 
 <div id="dialogue-box" class="dialogue-hidden">
   <div class="dialogue-panel">
@@ -594,13 +623,105 @@ scene.add(sunLight);
 scene.add(sunLight.target);
 
 /* ====================================================================
+   6B. PROCEDURAL STONE TEXTURES
+   ====================================================================
+   No image files, no CDN texture loads — every stone/marble surface
+   below is drawn once onto an offscreen 2D canvas (a flat base tone,
+   thousands of speckled grain flecks, and a handful of soft wandering
+   veins) and used as a THREE.CanvasTexture. The SAME canvas is reused a
+   second time as a `bumpMap` — three.js reads a bump map's luminance
+   regardless of its color, so the noisy speckle texture doubles as
+   cheap, convincing surface relief for free, no separate grayscale pass
+   needed. `createStoneMaterial()` bundles this into a ready-to-use
+   MeshStandardMaterial with its own independent tiling.
+*/
+
+function createStoneTexture({ base, size = 512, speckleCount = 3000, veinCount = 4, veinAlpha = 0.08 }) {
+  const canvasEl = document.createElement('canvas');
+  canvasEl.width = size;
+  canvasEl.height = size;
+  const ctx = canvasEl.getContext('2d');
+
+  ctx.fillStyle = base;
+  ctx.fillRect(0, 0, size, size);
+
+  // Fine grain speckle — what actually reads as "gritty stone" up close.
+  for (let i = 0; i < speckleCount; i++) {
+    const shade = Math.random() * 2 - 1; // -1..1
+    ctx.fillStyle = shade > 0 ? `rgba(255,255,255,${shade * 0.35})` : `rgba(0,0,0,${-shade * 0.35})`;
+    ctx.fillRect(Math.random() * size, Math.random() * size, 1.6, 1.6);
+  }
+
+  // A few soft, wandering darker veins for a quarried/marbled look.
+  ctx.strokeStyle = `rgba(0,0,0,${veinAlpha})`;
+  ctx.lineWidth = 1.5;
+  for (let v = 0; v < veinCount; v++) {
+    let x = Math.random() * size, y = 0;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    while (y < size) {
+      x += (Math.random() - 0.5) * 50;
+      y += size / 9;
+      ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+
+  const texture = new THREE.CanvasTexture(canvasEl);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  return texture;
+}
+
+// Returns a texture CLONE with its own tiling — cloning (rather than
+// regenerating the canvas) reuses the same underlying image cheaply
+// while letting a floor and a wall repeat at different scales.
+function tileTexture(sourceTexture, repeatX, repeatY) {
+  const t = sourceTexture.clone();
+  t.needsUpdate = true;
+  t.repeat.set(repeatX, repeatY);
+  return t;
+}
+
+// NOTE: deliberately no `color` option here — MeshStandardMaterial
+// multiplies `.map` by `.color`, and the default color is already white
+// (a no-op multiply), so leaving it unset is what lets the texture's own
+// baked-in base tone show through undimmed. Set `extra.color` only for a
+// deliberate tint on top of the texture.
+function createStoneMaterial(sourceTexture, { repeatX = 2, repeatY = 2, roughness = 0.88, metalness = 0.03, bumpScale = 0.025, extra = {} } = {}) {
+  return new THREE.MeshStandardMaterial({
+    map: tileTexture(sourceTexture, repeatX, repeatY),
+    bumpMap: tileTexture(sourceTexture, repeatX, repeatY),
+    bumpScale,
+    roughness,
+    metalness,
+    ...extra,
+  });
+}
+
+// Rough-hewn structural stone (colonnade + Great Hall walls/pillars/stairs).
+const wallStoneTexture = createStoneTexture({ base: '#c9bb98', speckleCount: 3200, veinCount: 3, veinAlpha: 0.07 });
+// A slightly cooler, more worn tone for floors underfoot.
+const floorStoneTexture = createStoneTexture({ base: '#ab9c7c', speckleCount: 3600, veinCount: 2, veinAlpha: 0.06 });
+// Fine-grained, minimal veining — the polished marble facing on the
+// archway. Base is a near-white neutral (rather than a final marble
+// tone) because `marble` and `marbleDark` below tint this SAME texture
+// two different cream/tan shades via `.color`; a near-white base is what
+// makes that multiply-tint land close to the actual requested color
+// instead of muddying it. Paired with a lower `roughness` below so it
+// actually catches specular highlights the way dressed marble does,
+// unlike the matte structural stone.
+const marbleTexture = createStoneTexture({ base: '#eeeeee', speckleCount: 1800, veinCount: 5, veinAlpha: 0.1 });
+
+/* ====================================================================
    7. THE ROMAN ARCHWAY
    ==================================================================== */
 
 function createRomanArchway() {
   const group = new THREE.Group();
-  const marble = new THREE.MeshStandardMaterial({ color: 0xe8e0cf, roughness: 0.85, metalness: 0.02, transparent: true, opacity: 0 });
-  const marbleDark = new THREE.MeshStandardMaterial({ color: 0xcfc4a8, roughness: 0.9, metalness: 0.02, transparent: true, opacity: 0 });
+  const marble = createStoneMaterial(marbleTexture, { repeatX: 2, repeatY: 3, roughness: 0.35, metalness: 0.06, bumpScale: 0.012, extra: { color: 0xe8e0cf, transparent: true, opacity: 0 } });
+  const marbleDark = createStoneMaterial(marbleTexture, { repeatX: 2, repeatY: 1.5, roughness: 0.45, metalness: 0.05, bumpScale: 0.012, extra: { color: 0xcfc4a8, transparent: true, opacity: 0 } });
 
   const baseY = getTerrainHeight(0, ARCH_Z);
 
@@ -647,8 +768,8 @@ const CEILING_Y = HALLWAY_FLOOR_Y + COLUMN_TOTAL_HEIGHT + 2.5;
 const hallwayGroup = new THREE.Group();
 scene.add(hallwayGroup);
 
-const stoneMaterial = new THREE.MeshStandardMaterial({ color: 0xcdbf9d, roughness: 0.85, metalness: 0.03 });
-const floorMaterial = new THREE.MeshStandardMaterial({ color: 0xb7a888, roughness: 0.92, metalness: 0.02 });
+const stoneMaterial = createStoneMaterial(wallStoneTexture, { repeatX: 1, repeatY: 3, roughness: 0.85, metalness: 0.03 });
+const floorMaterial = createStoneMaterial(floorStoneTexture, { repeatX: 3, repeatY: 20, roughness: 0.92, metalness: 0.02 });
 const ceilingMaterial = new THREE.MeshStandardMaterial({ color: 0x8f8570, roughness: 0.95, metalness: 0.0, side: THREE.DoubleSide });
 
 function createColumn(x, z) {
@@ -686,6 +807,7 @@ hallwayGroup.add(hallwayFloor);
 const hallwayCeiling = new THREE.Mesh(new THREE.PlaneGeometry(COLUMN_OFFSET * 2 + 8, HALLWAY_LENGTH + 8), ceilingMaterial);
 hallwayCeiling.rotation.x = Math.PI / 2;
 hallwayCeiling.position.set(0, CEILING_Y, hallwayCenterZ);
+hallwayCeiling.receiveShadow = true;
 hallwayGroup.add(hallwayCeiling);
 
 const lampZs = [];
@@ -799,8 +921,8 @@ const HALL_CEILING_Y = HALLWAY_FLOOR_Y + HALL_CEILING_Y_OFFSET;
 const hallGroup = new THREE.Group();
 scene.add(hallGroup);
 
-const hallStoneMaterial = new THREE.MeshStandardMaterial({ color: 0xc7b998, roughness: 0.88, metalness: 0.03 });
-const hallFloorMaterial = new THREE.MeshStandardMaterial({ color: 0xab9c7c, roughness: 0.9, metalness: 0.02 });
+const hallStoneMaterial = createStoneMaterial(wallStoneTexture, { repeatX: 4, repeatY: 4, roughness: 0.88, metalness: 0.03 });
+const hallFloorMaterial = createStoneMaterial(floorStoneTexture, { repeatX: 14, repeatY: 16, roughness: 0.9, metalness: 0.02 });
 const hallCeilingMaterial = new THREE.MeshStandardMaterial({ color: 0x847a63, roughness: 0.95, side: THREE.DoubleSide });
 
 const hallCenterZ = (HALLWAY_END_Z + HALL_END_Z) / 2;
@@ -814,6 +936,7 @@ hallGroup.add(hallFloor);
 const hallCeiling = new THREE.Mesh(new THREE.PlaneGeometry(HALL_HALF_WIDTH * 2, HALL_DEPTH), hallCeilingMaterial);
 hallCeiling.rotation.x = Math.PI / 2;
 hallCeiling.position.set(0, HALL_CEILING_Y, hallCenterZ);
+hallCeiling.receiveShadow = true;
 hallGroup.add(hallCeiling);
 
 const WALL_THICKNESS = 1;
@@ -892,6 +1015,7 @@ function createRail(width, depth, x, z) {
   const rail = new THREE.Mesh(new THREE.BoxGeometry(width, BALCONY_RAIL_HEIGHT, depth), railMaterial);
   rail.position.set(x, HALLWAY_FLOOR_Y + BALCONY_HEIGHT + BALCONY_RAIL_HEIGHT / 2, z);
   rail.castShadow = true;
+  rail.receiveShadow = true;
   hallGroup.add(rail);
 }
 // Along the back strip's open (inner) edge, facing the ground floor drop.
@@ -1325,6 +1449,99 @@ window.addEventListener('keyup', (event) => {
 });
 
 /* ====================================================================
+   14B. GAME AUDIO — ambience toggle + synthesized footsteps
+   ====================================================================
+   AMBIENCE: a real HTML5 <audio> element (declared in the body, looping)
+   for the background track. Browsers block audible autoplay, so it
+   starts muted (which IS universally allowed) and only becomes audible
+   once the user explicitly clicks the mute/unmute button — a real user
+   gesture — which then also (re)starts playback if the browser had
+   blocked it outright. A failed/blocked load fails silently (see the
+   `error` listener) rather than breaking anything else on the page.
+
+   FOOTSTEPS: synthesized on the fly with the Web Audio API instead of
+   loaded from a file. A looping <audio> clip has an audible "seam" every
+   repeat, and restarting one rapidly (once per stride) is unreliable
+   across browsers — a tiny filtered noise burst built fresh each step
+   sidesteps both problems and needs no external asset. `updateFootsteps`
+   is driven straight off `keyState` each frame (section 19), so it
+   starts/stops in lockstep with W/A/S/D/arrows being held.
+*/
+
+const bgAmbience = document.getElementById('bg-ambience');
+bgAmbience.volume = 0.35;
+bgAmbience.muted = true;
+bgAmbience.addEventListener('error', () => {
+  console.warn('Background ambience track failed to load — continuing without audio.');
+});
+bgAmbience.play().catch(() => {}); // silently muted autoplay; ignored if the browser blocks even that
+
+const audioToggleBtn = document.getElementById('audio-toggle');
+let audioMuted = true;
+
+function setAudioMuted(muted) {
+  audioMuted = muted;
+  bgAmbience.muted = muted;
+  audioToggleBtn.textContent = muted ? '🔇' : '🔊';
+  audioToggleBtn.classList.toggle('muted', muted);
+  audioToggleBtn.setAttribute('aria-pressed', String(!muted));
+  if (!muted) bgAmbience.play().catch(() => {}); // real user gesture here — safe to (re)start audible playback
+}
+
+audioToggleBtn.addEventListener('click', () => setAudioMuted(!audioMuted));
+
+// Lazily created — an AudioContext must be constructed (or resumed)
+// after a user gesture in most browsers, so building it eagerly at page
+// load would just throw/warn for no benefit.
+let footstepAudioCtx = null;
+function getFootstepAudioContext() {
+  if (!footstepAudioCtx) footstepAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (footstepAudioCtx.state === 'suspended') footstepAudioCtx.resume();
+  return footstepAudioCtx;
+}
+
+function playFootstepThud() {
+  if (audioMuted) return;
+  const ctx = getFootstepAudioContext();
+
+  const duration = 0.12;
+  const buffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * duration), ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < data.length; i++) {
+    data[i] = (Math.random() * 2 - 1) * (1 - i / data.length); // noise burst, fading to silence
+  }
+
+  const noise = ctx.createBufferSource();
+  noise.buffer = buffer;
+
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.value = 300; // dulls the noise into a soft "thud" instead of a hiss
+
+  const gain = ctx.createGain();
+  gain.gain.value = 0.16; // subtle, low-volume as requested
+
+  noise.connect(filter).connect(gain).connect(ctx.destination);
+  noise.start();
+}
+
+const FOOTSTEP_INTERVAL = 0.42; // seconds between steps — roughly a walking cadence
+let footstepTimer = 0;
+
+function updateFootsteps(dt) {
+  const isWalking = keyState.forward || keyState.backward || keyState.left || keyState.right;
+  if (!isWalking) {
+    footstepTimer = 0; // stop instantly, and reset phase so the next step starts promptly
+    return;
+  }
+  footstepTimer += dt;
+  if (footstepTimer >= FOOTSTEP_INTERVAL) {
+    footstepTimer -= FOOTSTEP_INTERVAL;
+    playFootstepThud();
+  }
+}
+
+/* ====================================================================
    15. LIGHTING TRANSITIONS (reusable — used for both the colonnade
        entry AND the deeper transition into the Great Hall)
    ==================================================================== */
@@ -1689,6 +1906,7 @@ function animate() {
 
     if (!dialogueOpen && !contactPopupOpen && !projectOverlayOpen) {
       updateExploringMovement(dt);
+      updateFootsteps(dt);
       controls.update();
 
       const nearestDoor = getNearestDoorInRange();
@@ -1699,6 +1917,7 @@ function animate() {
         interactPrompt.classList.add('prompt-hidden');
       }
     } else {
+      footstepTimer = 0; // don't let a queued step fire the instant a dialogue/popup closes
       interactPrompt.classList.add('prompt-hidden');
     }
   }
