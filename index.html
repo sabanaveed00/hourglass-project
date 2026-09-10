@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Step 1 — Hourglass Intro &amp; Desert Transition</title>
+<style>
+  /* ------------------------------------------------------------------ */
+  /* Full-bleed canvas setup. No scrollbars, no margins, fills viewport. */
+  /* ------------------------------------------------------------------ */
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #05050a;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+  }
+
+  #app-canvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+  }
+
+  /* Small on-screen label so you can see which phase the sequence is in
+     while you tune timings. Purely a dev aid — delete freely. */
+  #phase-label {
+    position: fixed;
+    left: 20px;
+    bottom: 16px;
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    pointer-events: none;
+    user-select: none;
+    transition: opacity 0.6s ease;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="app-canvas"></canvas>
+<div id="phase-label">Phase: Intro — Hourglass</div>
+
+<!--
+  ======================================================================
+  IMPORT MAP
+  ======================================================================
+  Loading Three.js as an ES module straight from a CDN (jsDelivr) so we
+  don't need a bundler. "three" resolves to the core library; anything
+  under "three/addons/" resolves to the examples/jsm folder, which is
+  where OrbitControls and GLTFLoader live.
+-->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+// import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+// ^ Uncomment when you're ready to swap in a real hourglass model.
+// See the big comment block near "SWAPPING IN A REAL GLTF MODEL" below.
+
+/* ====================================================================
+   1. RENDERER / SCENE / CAMERA
+   ==================================================================== */
+
+const canvas = document.getElementById('app-canvas');
+const phaseLabel = document.getElementById('phase-label');
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap; // soft, filmic shadow edges
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; // gives that "graded" AAA look
+renderer.toneMappingExposure = 1.1;
+
+const scene = new THREE.Scene();
+
+// Start in a near-black studio void. This color is animated toward a
+// warm desert-sky tone during the DESERT REVEAL phase (see updateLighting).
+scene.background = new THREE.Color(0x05050a);
+scene.fog = new THREE.FogExp2(0x05050a, 0.035);
+
+// Near plane is intentionally TINY (0.001). We are going to push the
+// camera to within a few sand-grain-widths of the mound, and a normal
+// near value (0.1 etc.) would clip straight through the geometry we're
+// trying to zoom into.
+const camera = new THREE.PerspectiveCamera(
+  45,
+  window.innerWidth / window.innerHeight,
+  0.001,
+  1000 // far enough to cover the 400-unit desert ground plane without a hard horizon cutoff
+);
+
+/* ====================================================================
+   2. LIGHTING — "studio" state (dark room, hard key light)
+   ==================================================================== */
+
+// Ambient light: just enough to keep shadows from going pure black.
+const ambientLight = new THREE.AmbientLight(0x404060, 0.6);
+scene.add(ambientLight);
+
+// A hemisphere light gives a believable sky/ground color split once we
+// reach the desert. It starts fully desaturated/dim in the studio phase
+// and gets "switched on" during the reveal.
+const hemiLight = new THREE.HemisphereLight(0x111122, 0x000000, 0.15);
+scene.add(hemiLight);
+
+// The hard key light. In the studio phase this behaves like a sharp
+// spotlight raking across the glass to carve out highlights. During the
+// desert reveal we morph it into a bright, slightly warm "sun".
+const keyLight = new THREE.SpotLight(0xffffff, 6.0);
+keyLight.position.set(4, 8, 5);
+keyLight.angle = Math.PI / 10;   // narrow cone = "sharp" spotlight look
+keyLight.penumbra = 0.25;
+keyLight.decay = 1.5;
+keyLight.distance = 60;
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.set(2048, 2048);
+keyLight.shadow.camera.near = 0.5;
+keyLight.shadow.camera.far = 40;
+keyLight.shadow.bias = -0.0005;
+scene.add(keyLight);
+scene.add(keyLight.target);
+keyLight.target.position.set(0, 0, 0);
+
+// A cool rim light from behind, purely for silhouette definition on the
+// glass edges while we're still in the dark studio.
+const rimLight = new THREE.PointLight(0x6688ff, 1.2, 20);
+rimLight.position.set(-3, 2, -4);
+scene.add(rimLight);
+
+/* ====================================================================
+   3. THE HOURGLASS (placeholder geometry)
+   ====================================================================
+   Built from two cones meeting tip-to-tip at the origin, plus metallic
+   disc caps and thin corner posts to suggest a frame. Everything lives
+   inside `hourglassGroup` so the whole assembly can be faded / removed
+   as a single unit later (see the GLTF swap notes at the bottom).
+*/
+
+const hourglassGroup = new THREE.Group();
+scene.add(hourglassGroup);
+
+const BULB_RADIUS = 1.6;
+const BULB_HEIGHT = 3.2;
+
+// Semi-transparent "glass" — physically based transmission gives a much
+// more convincing glass look than plain alpha blending, at the cost of
+// being a bit more GPU-expensive (fine for a hero/intro scene).
+const glassMaterial = new THREE.MeshPhysicalMaterial({
+  color: 0xbfd9ff,
+  metalness: 0,
+  roughness: 0.05,
+  transmission: 1.0,      // makes it act like real glass, refracting the scene behind it
+  thickness: 1.2,
+  ior: 1.45,
+  transparent: true,
+  opacity: 1.0,            // driven down to 0 during the DESERT REVEAL fade
+  clearcoat: 1.0,
+  clearcoatRoughness: 0.1,
+  side: THREE.DoubleSide,
+});
+
+// Top bulb: cone flipped so its apex points DOWN to meet the bottom bulb.
+const topBulbGeo = new THREE.ConeGeometry(BULB_RADIUS, BULB_HEIGHT, 24, 1, true);
+const topBulb = new THREE.Mesh(topBulbGeo, glassMaterial);
+topBulb.rotation.x = Math.PI; // flip so the apex faces the origin
+topBulb.position.y = BULB_HEIGHT / 2;
+topBulb.castShadow = true;
+topBulb.receiveShadow = true;
+hourglassGroup.add(topBulb);
+
+// Bottom bulb: default cone orientation already has its apex pointing up,
+// so it meets the top bulb's apex at y = 0 with no rotation needed.
+const bottomBulbGeo = new THREE.ConeGeometry(BULB_RADIUS, BULB_HEIGHT, 24, 1, true);
+const bottomBulb = new THREE.Mesh(bottomBulbGeo, glassMaterial);
+bottomBulb.position.y = -BULB_HEIGHT / 2;
+bottomBulb.castShadow = true;
+bottomBulb.receiveShadow = true;
+hourglassGroup.add(bottomBulb);
+
+// Rough, metallic caps top & bottom (like the brass/iron fittings on a
+// real hourglass). A cylinder pretending to be a disc.
+const capMaterial = new THREE.MeshStandardMaterial({
+  color: 0x8a7350,
+  metalness: 1.0,
+  roughness: 0.45,
+  transparent: true, // declared up front so the opacity fade in updateReveal() needs no runtime flag flips
+  opacity: 1.0,
+});
+const capGeo = new THREE.CylinderGeometry(BULB_RADIUS * 1.05, BULB_RADIUS * 1.05, 0.25, 24);
+
+const topCap = new THREE.Mesh(capGeo, capMaterial);
+topCap.position.y = BULB_HEIGHT + 0.1;
+topCap.castShadow = true;
+topCap.receiveShadow = true;
+hourglassGroup.add(topCap);
+
+const bottomCap = new THREE.Mesh(capGeo, capMaterial);
+bottomCap.position.y = -BULB_HEIGHT - 0.1;
+bottomCap.castShadow = true;
+bottomCap.receiveShadow = true;
+hourglassGroup.add(bottomCap);
+
+// Thin corner posts connecting the two caps, purely decorative framing.
+const postMaterial = capMaterial;
+const postGeo = new THREE.CylinderGeometry(0.06, 0.06, BULB_HEIGHT * 2 + 0.5, 8);
+const postPositions = [
+  [BULB_RADIUS * 0.95, 0, 0],
+  [-BULB_RADIUS * 0.95, 0, 0],
+  [0, 0, BULB_RADIUS * 0.95],
+  [0, 0, -BULB_RADIUS * 0.95],
+];
+postPositions.forEach(([x, y, z]) => {
+  const post = new THREE.Mesh(postGeo, postMaterial);
+  post.position.set(x, y, z);
+  post.castShadow = true;
+  hourglassGroup.add(post);
+});
+
+/* --------------------------------------------------------------------
+   Settled sand — a small mound sitting at the bottom of the lower bulb.
+   This is the object the camera dives toward, and the object the desert
+   ground plane visually "grows out of" once revealed.
+   -------------------------------------------------------------------- */
+
+const SAND_COLOR = 0xe1b382; // same warm desert tone used for the ground later
+
+const sandMaterial = new THREE.MeshStandardMaterial({
+  color: SAND_COLOR,
+  roughness: 1.0,
+  metalness: 0.0,
+});
+
+const sandMoundGeo = new THREE.ConeGeometry(BULB_RADIUS * 0.55, 1.1, 20);
+const sandMound = new THREE.Mesh(sandMoundGeo, sandMaterial);
+// Sits on the floor of the bottom bulb (bulb floor is at -BULB_HEIGHT).
+sandMound.position.y = -BULB_HEIGHT + 0.55;
+sandMound.castShadow = true;
+sandMound.receiveShadow = true;
+hourglassGroup.add(sandMound);
+
+/* ====================================================================
+   4. THE DESERT GROUND (hidden until the reveal phase)
+   ====================================================================
+   A massive plane, present in the scene from the start but fully
+   transparent and lowered slightly so it doesn't visually interfere
+   with the studio shot. We fade its opacity in and ease it up to floor
+   level while the hourglass fades out.
+*/
+
+const groundMaterial = new THREE.MeshStandardMaterial({
+  color: SAND_COLOR,
+  roughness: 1.0,
+  metalness: 0.0,
+  transparent: true,
+  opacity: 0.0, // faded in during the desert reveal
+});
+const groundGeo = new THREE.PlaneGeometry(400, 400, 1, 1);
+const groundPlane = new THREE.Mesh(groundGeo, groundMaterial);
+groundPlane.rotation.x = -Math.PI / 2;
+groundPlane.position.y = -BULB_HEIGHT - 0.4; // roughly level with the hourglass base
+groundPlane.receiveShadow = true;
+scene.add(groundPlane);
+
+/* ====================================================================
+   5. CAMERA CINEMATIC TRANSITION
+   ====================================================================
+   HOW THE INTERPOLATION WORKS
+   ----------------------------------------------------------------
+   - `camStart` / `camEnd` are two fixed Vector3 positions: a wide
+     establishing shot, and a position just millimeters above the sand
+     mound's surface.
+   - `lookStart` / `lookEnd` are the two points the camera aims at across
+     the same span (hourglass center -> sand mound surface).
+   - On every frame we compute `t`, a 0→1 progress value based on elapsed
+     time / total duration.
+   - `t` is run through an easing curve (easeInOutCubic) so the motion
+     starts slow, accelerates through the middle, and settles gently at
+     the end instead of moving at a robotic constant speed.
+   - `Vector3.lerpVectors(a, b, easedT)` linearly interpolates between
+     the two Vector3s and writes the result into the calling vector — no
+     manual per-axis math needed.
+   - We do this every frame in the render loop rather than using
+     setTimeout/CSS, because the render loop already tracks precise
+     elapsed time via THREE.Clock and keeps everything in sync with the
+     actual rendered frames (no jank from the two timers drifting apart).
+*/
+
+// The sand mound is a cone of height 1.1 sitting on the bulb floor
+// (see sandMound above): its apex sits at (-BULB_HEIGHT + 1.1), its base
+// at (-BULB_HEIGHT). camEnd is deliberately kept ABOVE the apex height so
+// the camera ends up hovering just outside the mound's surface rather
+// than clipping through solid geometry (a camera placed *inside* a mesh
+// would only see its culled back faces, i.e. nothing).
+const SAND_APEX_Y = -BULB_HEIGHT + 1.1;
+
+const camStart = new THREE.Vector3(0, 2.5, 11);           // wide establishing shot
+const camEnd = new THREE.Vector3(0.35, SAND_APEX_Y + 0.25, 0.5); // hovering just above the mound's tip
+
+const lookStart = new THREE.Vector3(0, 0, 0);                    // frame the whole hourglass
+const lookEnd = new THREE.Vector3(0, SAND_APEX_Y - 0.3, 0.15);   // aim down at the mound's slope
+
+camera.position.copy(camStart);
+camera.lookAt(lookStart);
+
+// Scratch vectors reused every frame instead of allocating new ones
+// (keeps the render loop garbage-collector friendly).
+const _camPos = new THREE.Vector3();
+const _lookPos = new THREE.Vector3();
+
+function easeInOutCubic(t) {
+  return t < 0.5
+    ? 4 * t * t * t
+    : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
+/* ====================================================================
+   6. ORBIT CONTROLS
+   ====================================================================
+   Disabled while the cinematic sequence is driving the camera, so user
+   input can't fight the scripted motion. Enabled once we land in the
+   desert, so the visitor can freely look around the new environment.
+*/
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enabled = false;
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.minDistance = 1;
+controls.maxDistance = 60;
+controls.target.copy(lookEnd);
+
+/* ====================================================================
+   7. SEQUENCE TIMING / STATE MACHINE
+   ==================================================================== */
+
+const ZOOM_DURATION = 4.5;     // seconds — camera dive into the sand
+const FADE_START = 3.4;        // seconds — hourglass starts fading before the dive fully ends
+const FADE_DURATION = 1.6;     // seconds — how long the glass fade + desert fade-in takes
+
+let sequenceState = 'intro'; // 'intro' -> 'revealing' -> 'desert'
+
+const clock = new THREE.Clock();
+
+function updateCameraDive(elapsed) {
+  const t = Math.min(elapsed / ZOOM_DURATION, 1);
+  const eased = easeInOutCubic(t);
+
+  _camPos.lerpVectors(camStart, camEnd, eased);
+  _lookPos.lerpVectors(lookStart, lookEnd, eased);
+
+  camera.position.copy(_camPos);
+  camera.lookAt(_lookPos);
+
+  // Keep OrbitControls' internal target in sync so there's no camera
+  // "snap" the moment controls.enabled flips to true at the end.
+  controls.target.copy(_lookPos);
+
+  return t;
+}
+
+function updateReveal(elapsed) {
+  const fadeT = THREE.MathUtils.clamp((elapsed - FADE_START) / FADE_DURATION, 0, 1);
+  const eased = easeInOutCubic(fadeT);
+
+  // Fade the glass + metal-cap materials out (sand stays put — the desert
+  // ground is meant to visually grow out from underneath it).
+  glassMaterial.opacity = 1 - eased;
+  capMaterial.opacity = 1 - eased;
+
+  // Fade the desert ground in, and raise it into place.
+  groundMaterial.opacity = eased;
+  groundPlane.position.y = THREE.MathUtils.lerp(-BULB_HEIGHT - 0.4, -BULB_HEIGHT + 0.6, eased);
+
+  updateLighting(eased);
+
+  return fadeT;
+}
+
+function updateLighting(eased) {
+  // Studio -> desert sky background color.
+  const studioColor = new THREE.Color(0x05050a);
+  const desertSkyColor = new THREE.Color(0x8fc7ff);
+  scene.background.copy(studioColor).lerp(desertSkyColor, eased);
+  scene.fog.color.copy(scene.background);
+  scene.fog.density = THREE.MathUtils.lerp(0.035, 0.006, eased); // clear, open desert haze
+
+  // Ambient + hemisphere brighten into open daylight.
+  ambientLight.intensity = THREE.MathUtils.lerp(0.6, 0.9, eased);
+  ambientLight.color.set(0x404060).lerp(new THREE.Color(0xfff2d8), eased);
+
+  hemiLight.intensity = THREE.MathUtils.lerp(0.15, 1.1, eased);
+  hemiLight.color.set(0x111122).lerp(new THREE.Color(0x9fd0ff), eased);
+  hemiLight.groundColor.set(0x000000).lerp(new THREE.Color(SAND_COLOR), eased);
+
+  // The hard studio spotlight opens up + warms into a high desert sun.
+  keyLight.intensity = THREE.MathUtils.lerp(6.0, 3.2, eased);
+  keyLight.angle = THREE.MathUtils.lerp(Math.PI / 10, Math.PI / 3, eased);
+  keyLight.penumbra = THREE.MathUtils.lerp(0.25, 0.6, eased);
+  keyLight.color.set(0xffffff).lerp(new THREE.Color(0xfff1c8), eased);
+
+  rimLight.intensity = THREE.MathUtils.lerp(1.2, 0, eased); // no longer needed once it's bright out
+}
+
+/* ====================================================================
+   8. RENDER LOOP
+   ==================================================================== */
+
+function animate() {
+  requestAnimationFrame(animate);
+  const elapsed = clock.getElapsedTime();
+
+  if (sequenceState === 'intro') {
+    const t = updateCameraDive(elapsed);
+    if (elapsed >= FADE_START) {
+      sequenceState = 'revealing';
+      phaseLabel.textContent = 'Phase: Desert Reveal';
+    }
+  }
+
+  if (sequenceState === 'revealing') {
+    // Keep driving the camera dive until it fully completes, in parallel
+    // with the fade (the two overlap on purpose for a smoother handoff).
+    if (elapsed < ZOOM_DURATION) {
+      updateCameraDive(elapsed);
+    }
+    const fadeT = updateReveal(elapsed);
+    if (fadeT >= 1 && elapsed >= ZOOM_DURATION) {
+      sequenceState = 'desert';
+      phaseLabel.textContent = 'Phase: Desert — drag to look around';
+      phaseLabel.style.opacity = '0';
+      controls.enabled = true; // hand control back to the user
+    }
+  }
+
+  if (sequenceState === 'desert') {
+    controls.update();
+  }
+
+  renderer.render(scene, camera);
+}
+
+animate();
+
+/* ====================================================================
+   9. RESPONSIVE RESIZE
+   ==================================================================== */
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+/* ====================================================================
+   10. SWAPPING IN A REAL GLTF MODEL (for later steps)
+   ====================================================================
+   Right now `hourglassGroup` holds procedural placeholder geometry
+   (cones + cylinders). To replace it with a real modeled/textured
+   hourglass exported as .gltf/.glb:
+
+   1. Uncomment the GLTFLoader import at the top of this file.
+
+   2. Remove (or just stop adding) the placeholder meshes above —
+      topBulb, bottomBulb, topCap, bottomCap, the corner posts, and
+      sandMound — OR keep sandMound if your model doesn't include sand,
+      since the camera dive specifically targets its position.
+
+   3. Load your model into the SAME group so all the fade/animation code
+      above keeps working unmodified:
+
+        const loader = new GLTFLoader();
+        loader.load('models/hourglass.glb', (gltf) => {
+          hourglassGroup.add(gltf.scene);
+
+          // Walk the loaded scene and collect references to whichever
+          // materials should fade out during the desert reveal, e.g.:
+          gltf.scene.traverse((child) => {
+            if (child.isMesh) {
+              child.castShadow = true;
+              child.receiveShadow = true;
+              child.material.transparent = true; // required for opacity fades
+            }
+          });
+        });
+
+   4. Update `updateReveal()` to fade your model's actual material(s)
+      instead of (or in addition to) `glassMaterial` / `capMaterial`.
+
+   5. Re-check `camEnd` / `lookEnd` above — they're tuned to the
+      procedural sand mound's position (BULB_HEIGHT-relative). Adjust
+      them to match wherever the sand sits in your imported model.
+
+   Everything else — the camera lerp, the easing curve, the lighting
+   transition, the ground reveal, OrbitControls handoff — is decoupled
+   from the placeholder geometry and needs no changes.
+*/
+</script>
+</body>
+</html>
