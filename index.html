@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Step 4 — The Great Skill Hall</title>
+<title>Step 5 — WASD Controls &amp; Holographic Placards</title>
 <style>
   html, body {
     margin: 0; padding: 0; width: 100%; height: 100%;
@@ -796,12 +796,63 @@ function createTextPanel(lines, { width = 6, height = 2.6, bg = '#1c140d', fg = 
   return new THREE.Mesh(new THREE.PlaneGeometry(width, height), new THREE.MeshBasicMaterial({ map: texture, transparent: true }));
 }
 
-const SKILLS = ['Frontend Development', '3D Graphics', 'UI / UX Design'];
+// --- Holographic skill placards -----------------------------------
+// Unlit MeshBasicMaterial + a transparent canvas texture with the neon
+// glow baked in via ctx.shadowBlur — this is what makes it read as a
+// "hologram" rather than a lit sign, since MeshBasicMaterial ignores
+// scene lighting entirely and always renders at full, flat brightness.
+// A small same-colored PointLight (parented to the mesh, so it rides
+// along with the bob animation for free) casts real light onto the wall.
+function createHoloPlacard(text, { width = 5, height = 2, color = '#22e5ff' } = {}) {
+  const canvasEl = document.createElement('canvas');
+  canvasEl.width = 512;
+  canvasEl.height = Math.round((height / width) * 512);
+  const ctx = canvasEl.getContext('2d');
+  ctx.clearRect(0, 0, canvasEl.width, canvasEl.height); // transparent background — only the glow shows
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 6;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 24;
+  ctx.strokeRect(14, 14, canvasEl.width - 28, canvasEl.height - 28);
+
+  ctx.fillStyle = color;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = 'bold 64px "Segoe UI", Arial, sans-serif';
+  ctx.shadowBlur = 30;
+  ctx.fillText(text, canvasEl.width / 2, canvasEl.height / 2);
+
+  const texture = new THREE.CanvasTexture(canvasEl);
+  texture.colorSpace = THREE.SRGBColorSpace;
+
+  const mesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(width, height),
+    new THREE.MeshBasicMaterial({ map: texture, transparent: true })
+  );
+
+  const glow = new THREE.PointLight(new THREE.Color(color), 1.8, 8);
+  mesh.add(glow); // parented — moves with the placard's bob animation automatically
+
+  return mesh;
+}
+
+const SKILLS = [
+  { text: 'JavaScript', color: '#22e5ff' },
+  { text: 'React', color: '#22e5ff' },
+  { text: 'Python', color: '#c9a227' },
+];
+
+const skillPlacards = [];
 SKILLS.forEach((skill, i) => {
-  const panel = createTextPanel([skill]);
-  panel.position.set(-HALL_HALF_WIDTH + WALL_THICKNESS / 2 + 0.05, HALLWAY_FLOOR_Y + 4, HALLWAY_END_Z - 14 - i * 22);
-  panel.rotation.y = Math.PI / 2;
-  hallGroup.add(panel);
+  const placard = createHoloPlacard(skill.text, { color: skill.color });
+  const baseY = HALLWAY_FLOOR_Y + 4;
+  placard.position.set(-HALL_HALF_WIDTH + WALL_THICKNESS / 2 + 0.05, baseY, HALLWAY_END_Z - 14 - i * 22);
+  placard.rotation.y = Math.PI / 2;
+  placard.userData.baseY = baseY;
+  placard.userData.bobPhase = i * ((Math.PI * 2) / 3); // stagger the sine waves so they don't bob in lockstep
+  hallGroup.add(placard);
+  skillPlacards.push(placard);
 });
 
 // --- Balcony doors + shared "Project Showcases" tag ---------------------
@@ -869,6 +920,61 @@ const hallFillLight = new THREE.PointLight(0xffe3b8, 0, 140);
 hallFillLight.position.set(0, HALL_CEILING_Y - 3, hallCenterZ);
 hallGroup.add(hallFillLight);
 
+/* --------------------------------------------------------------------
+   COLLISION: room footprints (coordinate-math constraints) + the
+   central table (an actual THREE.Box3) ----------------------------
+   The walkable area is a UNION of several rectangular regions (corridor,
+   ground floor, two balcony strips, the staircase) rather than one single
+   box, so those are expressed as simple coordinate predicates. The table
+   is one discrete, static object, so a real THREE.Box3 — computed
+   straight from its mesh geometry, so it never drifts out of sync with
+   however the table is actually built — is the natural fit there.
+   -------------------------------------------------------------------- */
+
+function isInCorridor(x, z) {
+  return Math.abs(x) <= CORRIDOR_HALF_WIDTH && z >= HALLWAY_END_Z && z <= HALLWAY_START_Z;
+}
+function isInHall(x, z) {
+  return Math.abs(x) <= HALL_HALF_WIDTH - WALL_MARGIN && z >= HALL_END_Z + WALL_MARGIN && z <= HALLWAY_END_Z;
+}
+function isOnStaircaseFootprint(x, z) {
+  return Math.abs(x - STAIR_X) < STAIR_WIDTH / 2 && z <= STAIR_Z_BOTTOM && z >= STAIR_Z_TOP;
+}
+function isOnRightBalcony(x, z) {
+  return x >= RIGHT_STRIP_X_MIN && x <= RIGHT_STRIP_X_MAX && z >= RIGHT_STRIP_Z_MIN && z <= RIGHT_STRIP_Z_MAX;
+}
+function isOnBackBalcony(x, z) {
+  return x >= BACK_STRIP_X_MIN && x <= BACK_STRIP_X_MAX && z >= BACK_STRIP_Z_MIN && z <= BACK_STRIP_Z_MAX;
+}
+function isWithinAnyRegion(x, z) {
+  return isInCorridor(x, z) || isInHall(x, z) || isOnStaircaseFootprint(x, z) || isOnRightBalcony(x, z) || isOnBackBalcony(x, z);
+}
+
+const PLAYER_RADIUS = 0.6; // rough "shoulder width" the player can't push a box through
+const tableCollisionBox = new THREE.Box3().setFromObject(tableGroup).expandByScalar(PLAYER_RADIUS);
+function isInsideTable(x, z) {
+  // A Box3 is a 3D volume, but a walking player only ever needs the
+  // horizontal (X/Z) footprint of it — height is handled separately.
+  return x >= tableCollisionBox.min.x && x <= tableCollisionBox.max.x
+      && z >= tableCollisionBox.min.z && z <= tableCollisionBox.max.z;
+}
+
+// A move is only ever a WALK, never a fall or a climb through solid
+// geometry: it must land inside a defined region, must not land inside
+// the table, and the floor height there can't be more than a small step
+// away from where you're currently standing. That last check is what
+// stops you from walking off the balcony's open edge — the ground floor
+// sits directly "underneath" the balcony's X/Z footprint in this layout,
+// so region membership alone wouldn't catch a 6.5-unit plunge; a bounded
+// step height does. (12x the biggest single-frame stair-climb increment,
+// so ordinary walking up the ramp is never mistaken for a fall.)
+const MAX_STEP_HEIGHT = 1.0;
+function isWalkable(x, z, currentFloorY) {
+  if (!isWithinAnyRegion(x, z)) return false;
+  if (isInsideTable(x, z)) return false;
+  return Math.abs(getFloorHeightAt(x, z) - currentFloorY) <= MAX_STEP_HEIGHT;
+}
+
 /* ====================================================================
    11. CAMERA CINEMATIC TRANSITION — the hourglass dive
    ==================================================================== */
@@ -926,85 +1032,94 @@ function updateCameraTravel(travelElapsed) {
 }
 
 /* ====================================================================
-   14. FREE EXPLORATION — corridor + Great Hall navigation
+   14. FREE EXPLORATION — custom WASD/Arrow-key FPS controller
    ====================================================================
-   Movement: the wheel (forward/back) and W/A/S/D or Arrow keys (full 2D)
-   set a `targetPlayerX/Z`, clamped so you can't clip through a wall or
-   fall out of the level. Each frame the actual `playerX/Z` eases toward
-   that target with `THREE.MathUtils.damp` — an exponential,
-   FRAME-RATE-INDEPENDENT smoothing function. Only the resulting PER-
-   FRAME DELTA is applied to the camera and to OrbitControls' target
-   together, which is what keeps the "look rig" (see section 12's
-   tiny-radius trick, set up in enterExploringMode below) moving as one
-   unit without disturbing whatever direction you're currently looking.
+   This replaces Step 4's scroll-to-glide + damped-target movement with
+   a standard, direct game-style controller:
 
-   Height (Y) comes from getFloorHeightAt(playerX, playerZ) — since
-   playerX/Z are already smoothed, the resulting eye height is smooth
-   too, which is what makes climbing the staircase read as a continuous
-   ascent rather than a series of pops.
+   - `keydown`/`keyup` just flip booleans in `keyState` — held keys mean
+     continuous movement, exactly like a normal FPS.
+   - Every frame, `camera.getWorldDirection()` gives the exact direction
+     the camera is CURRENTLY looking (whatever OrbitControls' mouse-drag
+     has rotated it to), flattened onto the XZ plane so looking up/down
+     doesn't fly you into the ceiling or floor. That's "forward" — press
+     W and you walk wherever you're actually looking, not along a fixed
+     world axis.
+   - "Right" comes from the camera's own local +X axis in world space
+     (`setFromMatrixColumn(camera.matrix, 0)`), the same technique
+     three.js's own PointerLockControls uses for strafing — guaranteed
+     correct regardless of which way the camera is currently rotated.
+   - The combined move vector is re-normalized before scaling by
+     WALK_SPEED * dt, so moving diagonally (e.g. W+D) isn't faster than
+     moving straight.
+   - X and Z are resolved as two SEPARATE collision checks (via
+     isWalkable(), section 10) rather than one combined check — that's
+     what lets you slide along a wall or the table's edge instead of
+     stopping dead the instant any part of a diagonal move is blocked.
+   - Camera position is mutated directly (no damping/lerp) for an
+     immediate, responsive feel; OrbitControls' target is translated by
+     the exact same delta every frame so the tiny-radius "look rig" from
+     enterExploringMode() below keeps tracking wherever you're looking.
 */
 
-const WALK_SPEED = 14;
-const SCROLL_SPEED = 0.05;
-const HALLWAY_DAMPING = 6;
+const WALK_SPEED = 10; // units/second — tune this to taste
 const LOOK_OFFSET_RADIUS = 0.15;
 
-let playerX = 0, playerZ = 0;
-let targetPlayerX = 0, targetPlayerZ = 0;
 const keyState = { forward: false, backward: false, left: false, right: false };
-
-// `fromZ` is where the player CURRENTLY is — it decides whether we're
-// "in the corridor" or "in the hall" for this frame's X bound, which is
-// what prevents a jarring sideways snap: you can only ever cross between
-// the two rooms while lined up with the doorway (|x| <= corridor width).
-function clampPlayerPosition(x, z, fromZ) {
-  const wasInCorridor = fromZ >= HALLWAY_END_Z;
-  const currentHalfWidth = wasInCorridor ? CORRIDOR_HALF_WIDTH : (HALL_HALF_WIDTH - WALL_MARGIN);
-  x = THREE.MathUtils.clamp(x, -currentHalfWidth, currentHalfWidth);
-
-  if (Math.abs(x) <= CORRIDOR_HALF_WIDTH) {
-    z = THREE.MathUtils.clamp(z, HALL_END_Z + WALL_MARGIN, HALLWAY_START_Z);
-  } else {
-    z = wasInCorridor
-      ? THREE.MathUtils.clamp(z, HALLWAY_END_Z, HALLWAY_START_Z)
-      : THREE.MathUtils.clamp(z, HALL_END_Z + WALL_MARGIN, HALLWAY_END_Z);
-  }
-  return { x, z };
-}
+const _moveForward = new THREE.Vector3();
+const _moveRight = new THREE.Vector3();
 
 function updateExploringMovement(dt) {
-  if (keyState.forward) targetPlayerZ -= WALK_SPEED * dt;
-  if (keyState.backward) targetPlayerZ += WALK_SPEED * dt;
-  if (keyState.left) targetPlayerX -= WALK_SPEED * dt;
-  if (keyState.right) targetPlayerX += WALK_SPEED * dt;
+  camera.getWorldDirection(_moveForward);
+  _moveForward.y = 0;
+  _moveForward.normalize();
 
-  const clamped = clampPlayerPosition(targetPlayerX, targetPlayerZ, playerZ);
-  targetPlayerX = clamped.x;
-  targetPlayerZ = clamped.z;
+  _moveRight.setFromMatrixColumn(camera.matrix, 0);
+  _moveRight.y = 0;
+  _moveRight.normalize();
 
-  const prevX = playerX, prevZ = playerZ;
-  playerX = THREE.MathUtils.damp(playerX, targetPlayerX, HALLWAY_DAMPING, dt);
-  playerZ = THREE.MathUtils.damp(playerZ, targetPlayerZ, HALLWAY_DAMPING, dt);
-  const deltaX = playerX - prevX;
-  const deltaZ = playerZ - prevZ;
+  let moveX = 0, moveZ = 0;
+  if (keyState.forward) { moveX += _moveForward.x; moveZ += _moveForward.z; }
+  if (keyState.backward) { moveX -= _moveForward.x; moveZ -= _moveForward.z; }
+  if (keyState.right) { moveX += _moveRight.x; moveZ += _moveRight.z; }
+  if (keyState.left) { moveX -= _moveRight.x; moveZ -= _moveRight.z; }
 
-  camera.position.x += deltaX;
-  camera.position.z += deltaZ;
-  controls.target.x += deltaX;
-  controls.target.z += deltaZ;
+  const moveLength = Math.hypot(moveX, moveZ);
+  if (moveLength > 1e-4) {
+    const step = (WALK_SPEED * dt) / moveLength; // normalize, then scale — keeps diagonal speed == straight speed
+    moveX *= step;
+    moveZ *= step;
 
-  const eyeY = getFloorHeightAt(playerX, playerZ) + TRAVEL_EYE_HEIGHT;
+    const currentX = camera.position.x;
+    const currentZ = camera.position.z;
+    const currentFloorY = getFloorHeightAt(currentX, currentZ);
+
+    // Resolve one axis at a time so bumping a wall/table at an angle
+    // slides you along it instead of stopping you outright.
+    let newX = currentX, newZ = currentZ;
+    if (isWalkable(currentX + moveX, currentZ, currentFloorY)) newX = currentX + moveX;
+    if (isWalkable(newX, currentZ + moveZ, currentFloorY)) newZ = currentZ + moveZ;
+
+    const deltaX = newX - currentX;
+    const deltaZ = newZ - currentZ;
+    camera.position.x = newX;
+    camera.position.z = newZ;
+    controls.target.x += deltaX;
+    controls.target.z += deltaZ;
+  }
+
+  // STAIRS CLIMBING: no special-case code needed here — getFloorHeightAt()
+  // already ramps smoothly across the staircase's footprint (section 10),
+  // so simply re-deriving eye height from the player's current X/Z every
+  // frame makes walking forward onto the stairs raise the camera in
+  // lock-step with forward progress, exactly like climbing a real ramp.
+  const eyeY = getFloorHeightAt(camera.position.x, camera.position.z) + TRAVEL_EYE_HEIGHT;
   const deltaY = eyeY - camera.position.y;
   camera.position.y += deltaY;
   controls.target.y += deltaY;
 }
 
 function enterExploringMode() {
-  playerX = camera.position.x;
-  playerZ = camera.position.z;
-  targetPlayerX = playerX;
-  targetPlayerZ = playerZ;
-
   const forward = new THREE.Vector3();
   camera.getWorldDirection(forward);
   controls.target.copy(camera.position).addScaledVector(forward, LOOK_OFFSET_RADIUS);
@@ -1018,14 +1133,10 @@ function enterExploringMode() {
   controls.enabled = true;
 }
 
-window.addEventListener('wheel', (event) => {
-  if (sequenceState !== 'exploring' || dialogueOpen || contactPopupOpen) return;
-  const clamped = clampPlayerPosition(targetPlayerX, targetPlayerZ - event.deltaY * SCROLL_SPEED, playerZ);
-  targetPlayerX = clamped.x;
-  targetPlayerZ = clamped.z;
-}, { passive: true });
-
 window.addEventListener('keydown', (event) => {
+  const isMoveKey = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'W', 'a', 'A', 's', 'S', 'd', 'D'].includes(event.key);
+  if (isMoveKey) event.preventDefault(); // no page scrolling on Arrow keys
+
   if (event.key === 'ArrowUp' || event.key === 'w' || event.key === 'W') keyState.forward = true;
   if (event.key === 'ArrowDown' || event.key === 's' || event.key === 'S') keyState.backward = true;
   if (event.key === 'ArrowLeft' || event.key === 'a' || event.key === 'A') keyState.left = true;
@@ -1257,7 +1368,7 @@ function animate() {
       sequenceState = 'exploring';
       enterExploringMode();
       beginLightTransition(elapsed, { ambient: 0.18, hemi: 0.15, sun: 0.4, hallFill: 0 });
-      phaseLabel.textContent = 'Phase: The Colonnade — scroll/WASD to walk, drag to look, click to interact';
+      phaseLabel.textContent = 'Phase: The Colonnade — WASD/arrows to walk, drag to look, click to interact';
       phaseLabel.style.opacity = '0';
     }
   }
@@ -1265,17 +1376,22 @@ function animate() {
   if (sequenceState === 'exploring') {
     updateLightTransition(elapsed);
 
-    if (!enteredHallOnce && playerZ < HALLWAY_END_Z) {
+    if (!enteredHallOnce && camera.position.z < HALLWAY_END_Z) {
       enteredHallOnce = true;
       beginLightTransition(elapsed, { ambient: 0.1, hemi: 0.08, sun: 0, hallFill: 1.3 });
     }
 
-    // The floating contact icon keeps spinning/bobbing even while a
-    // dialogue or popup has paused movement, so it always reads as "alive".
+    // The floating contact icon and the skill placards keep animating
+    // even while a dialogue or popup has paused movement, so they always
+    // read as "alive" rather than freezing along with everything else.
     contactIcon.rotation.y += dt * 0.9;
     contactIcon.rotation.x += dt * 0.4;
     contactIcon.position.y = contactIconBaseY + Math.sin(elapsed * 1.6) * 0.18;
     contactIconLight.position.y = contactIcon.position.y;
+
+    skillPlacards.forEach((placard) => {
+      placard.position.y = placard.userData.baseY + Math.sin(elapsed * 1.2 + placard.userData.bobPhase) * 0.15;
+    });
 
     if (!dialogueOpen && !contactPopupOpen) {
       updateExploringMovement(dt);
